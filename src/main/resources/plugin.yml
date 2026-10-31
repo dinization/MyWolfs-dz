@@ -1,0 +1,16 @@
+name: MyWolfs
+version: '${version}'
+
+main: me.diniz.myWolfs.MyWolfs
+api-version: '26.3'
+load: POSTWORLD
+
+commands:
+  wolfs:
+    description: Main command for wolf management (ranks, stats, list, call, rename, remove, admin, help).
+    usage: /wolfs [ranks|stats|list|call|rename|remove|help|admin]
+
+permissions:
+  mywolfs.admin:
+    description: Allows access to admin commands (setlevel, force remove)
+    default: op
