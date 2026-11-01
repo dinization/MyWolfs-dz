@@ -8,8 +8,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityTameEvent;
 import org.bukkit.persistence.PersistentDataType;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Random;
 
 public class DomesticationListener implements Listener {
@@ -25,42 +23,36 @@ public class DomesticationListener implements Listener {
     public void onTame(EntityTameEvent event) {
         if (!(event.getEntity() instanceof Wolf wolf)) return;
 
-        // Run the logic 1 tick later to ensure the game has fully registered the owner
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             Player owner = (Player) wolf.getOwner();
             if (owner == null) return;
 
-            // --- Check the wolf limit across ALL worlds ---
-            int maxWolves = plugin.getConfig().getInt("max_wolves", 3);
-            int currentWolfCount = 0;
-
-            // Iterate through all loaded worlds in the server
-            for (org.bukkit.World world : Bukkit.getWorlds()) {
-                for (Wolf w : world.getEntitiesByClass(Wolf.class)) {
-                    if (w.isTamed() && owner.equals(w.getOwner()) && !w.equals(wolf)) {
-                        // Only count wolves that are NOT level 0 (RPG wolves)
-                        int lvl = w.getPersistentDataContainer().getOrDefault(MyWolfs.KEY_LEVEL, PersistentDataType.INTEGER, 1);
-                        if (lvl > 0) {
-                            currentWolfCount++;
-                        }
-                    }
-                }
-            }
-
             var pdc = wolf.getPersistentDataContainer();
 
+            // 1. Set a TEMPORARY name in the PDC so it doesn't occupy "Wolf" in the database
+            pdc.set(MyWolfs.KEY_WOLF_NAME, PersistentDataType.STRING, "TEMP_" + wolf.getUniqueId().toString().substring(0, 5));
+
+            // 2. Save the wolf to the database FIRST so it counts in our checks
+            WolfDataManager.saveWolf(wolf, owner);
+
+            // 3. Check the limit using the database
+            int maxWolves = plugin.getConfig().getInt("max_wolves", 3);
+            int currentWolfCount = WolfDataManager.getRPGWolfCount(owner);
+
             // If the limit is reached, make it a Level 0 wolf (vanilla)
-            if (currentWolfCount >= maxWolves) {
+            if (currentWolfCount > maxWolves) {
                 pdc.set(MyWolfs.KEY_LEVEL, PersistentDataType.INTEGER, 0);
                 pdc.set(MyWolfs.KEY_XP, PersistentDataType.INTEGER, 0);
                 pdc.set(MyWolfs.KEY_IS_BABY, PersistentDataType.BOOLEAN, true);
 
-                String uniqueName = generateUniqueName(wolf);
+                // 4. Generate the REAL name now that the DB is safe
+                String uniqueName = generateUniqueName(owner);
                 pdc.set(MyWolfs.KEY_WOLF_NAME, PersistentDataType.STRING, uniqueName);
                 wolf.setCustomName(uniqueName + " (Over Limit)");
                 wolf.setCustomNameVisible(true);
 
                 WolfStatsManager.applyStats(wolf);
+                WolfDataManager.updateWolf(wolf); // Update DB with the real name
 
                 MyWolfs.getInstance().sendConfigMessage(owner, "wolf_limit_reached", "%max%", String.valueOf(maxWolves));
                 return;
@@ -82,42 +74,31 @@ public class DomesticationListener implements Listener {
             pdc.set(MyWolfs.KEY_RANK_SPEED, PersistentDataType.STRING, rankSpeed);
             pdc.set(MyWolfs.KEY_RANK_ARMOR, PersistentDataType.STRING, rankArmor);
 
-            String uniqueName = generateUniqueName(wolf);
+            // 4. Generate the REAL name now that the DB is safe
+            String uniqueName = generateUniqueName(owner);
             pdc.set(MyWolfs.KEY_WOLF_NAME, PersistentDataType.STRING, uniqueName);
 
             wolf.setCustomName(uniqueName + " (Lv." + initialLevel + ")");
             wolf.setCustomNameVisible(true);
 
             WolfStatsManager.applyStats(wolf);
+
+            // 5. Save to database again with the final level 1 data and real name
+            WolfDataManager.updateWolf(wolf);
+
         }, 1L);
     }
 
-    // Helper method to generate a unique name (Wolf, Wolf-2, Wolf-3...)
-    private String generateUniqueName(Wolf tamedWolf) {
-        Player owner = (Player) tamedWolf.getOwner();
-        if (owner == null) return "Wolf";
-
-        // 1. Get all wolves owned by the player across ALL worlds
-        List<String> existingNames = new ArrayList<>();
-        for (org.bukkit.World world : org.bukkit.Bukkit.getWorlds()) {
-            for (Wolf wolf : world.getEntitiesByClass(Wolf.class)) {
-                if (wolf.isTamed() && owner.equals(wolf.getOwner()) && !wolf.equals(tamedWolf)) {
-                    String name = wolf.getPersistentDataContainer().getOrDefault(
-                            MyWolfs.KEY_WOLF_NAME, PersistentDataType.STRING, "Wolf"
-                    );
-                    existingNames.add(name);
-                }
-            }
-        }
-
-        // 2. If "Wolf" is free, use it
-        if (!existingNames.contains("Wolf")) {
+    // Helper method to generate a unique name using the database
+    private String generateUniqueName(Player owner) {
+        // If "Wolf" is free in the database, use it
+        if (!WolfDataManager.isNameTakenInDB(owner, "Wolf")) {
             return "Wolf";
         }
 
-        // 3. Otherwise, try Wolf-2, Wolf-3, etc.
+        // Otherwise, try Wolf-2, Wolf-3, etc.
         int suffix = 2;
-        while (existingNames.contains("Wolf-" + suffix)) {
+        while (WolfDataManager.isNameTakenInDB(owner, "Wolf-" + suffix)) {
             suffix++;
         }
         return "Wolf-" + suffix;

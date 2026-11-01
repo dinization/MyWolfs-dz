@@ -1,12 +1,16 @@
 package me.diniz.myWolfs;
 
 import net.kyori.adventure.text.minimessage.MiniMessage;
+import org.bukkit.Bukkit;
+import org.bukkit.Chunk;
 import org.bukkit.Location;
+import org.bukkit.World;
 import org.bukkit.attribute.Attribute;
 import org.bukkit.attribute.AttributeInstance;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Wolf;
 import org.bukkit.persistence.PersistentDataType;
@@ -16,10 +20,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 public class WolfsCommand implements CommandExecutor {
 
-    // Cooldown Map: Player UUID -> Last use timestamp in milliseconds
     private final HashMap<UUID, Long> callCooldowns = new HashMap<>();
 
     @Override
@@ -35,14 +39,12 @@ public class WolfsCommand implements CommandExecutor {
             MyWolfs.getInstance().sendConfigMessage(player, "help_stats");
             MyWolfs.getInstance().sendConfigMessage(player, "help_list");
 
-            // Dynamic cooldown replacement
             int cooldown = MyWolfs.getInstance().getConfig().getInt("settings.call_cooldown_seconds", 30);
             MyWolfs.getInstance().sendConfigMessage(player, "help_call", "%cooldown%", String.valueOf(cooldown));
 
             MyWolfs.getInstance().sendConfigMessage(player, "help_rename");
             MyWolfs.getInstance().sendConfigMessage(player, "help_remove");
 
-            // Only show admin commands if the player has permission
             if (player.hasPermission("mywolfs.admin")) {
                 MyWolfs.getInstance().sendConfigMessage(player, "help_admin_header");
                 MyWolfs.getInstance().sendConfigMessage(player, "help_admin_setlevel");
@@ -55,18 +57,35 @@ public class WolfsCommand implements CommandExecutor {
 
         // --- CALL COMMAND ---
         if (subCommand.equals("call")) {
-            Wolf wolf = findWolf(player, args);
-            if (wolf == null) {
+            if (args.length < 2) {
+                player.sendMessage("§cUsage: /wolfs call <name>");
+                return true;
+            }
+
+            String targetName = args[1];
+            FileConfiguration db = WolfDataManager.getConfig();
+
+            // 1. Find the wolf UUID by name in the database
+            String wolfUUIDString = null;
+            String wolfPath = null;
+            for (String key : db.getConfigurationSection("wolves").getKeys(false)) {
+                String path = "wolves." + key;
+                if (targetName.equalsIgnoreCase(db.getString(path + ".name"))) {
+                    // Check if it belongs to this player
+                    if (db.getString(path + ".owner").equals(player.getUniqueId().toString())) {
+                        wolfUUIDString = key;
+                        wolfPath = path;
+                        break;
+                    }
+                }
+            }
+
+            if (wolfUUIDString == null) {
                 MyWolfs.getInstance().sendConfigMessage(player, "wolf_not_found");
                 return true;
             }
 
-            if (wolf.getWorld().equals(player.getWorld()) && wolf.getLocation().distanceSquared(player.getLocation()) < 25) {
-                String name = wolf.getPersistentDataContainer().getOrDefault(MyWolfs.KEY_WOLF_NAME, PersistentDataType.STRING, "Wolf");
-                MyWolfs.getInstance().sendConfigMessage(player, "call_already_near", "%name%", name);
-                return true;
-            }
-
+            // 2. Check Cooldown
             int cooldownSeconds = MyWolfs.getInstance().getConfig().getInt("settings.call_cooldown_seconds", 30);
             long currentTime = System.currentTimeMillis();
             long lastUse = callCooldowns.getOrDefault(player.getUniqueId(), 0L);
@@ -78,12 +97,51 @@ public class WolfsCommand implements CommandExecutor {
                 return true;
             }
 
-            wolf.setSitting(false);
-            wolf.teleport(player.getLocation());
-            callCooldowns.put(player.getUniqueId(), currentTime);
+            // 3. Try to find the entity in memory
+            UUID wolfUUID = UUID.fromString(wolfUUIDString);
+            Wolf wolf = (Wolf) Bukkit.getEntity(wolfUUID);
 
-            String name = wolf.getPersistentDataContainer().getOrDefault(MyWolfs.KEY_WOLF_NAME, PersistentDataType.STRING, "Wolf");
-            MyWolfs.getInstance().sendConfigMessage(player, "call_success", "%name%", name);
+            if (wolf != null && wolf.isValid()) {
+                // Wolf is loaded! Teleport immediately.
+                performTeleport(player, wolf, targetName, currentTime);
+            } else {
+                // Wolf is NOT loaded. We need to load the chunk.
+                String worldName = db.getString(wolfPath + ".world");
+                int chunkX = db.getInt(wolfPath + ".chunk_x");
+                int chunkZ = db.getInt(wolfPath + ".chunk_z");
+                World world = Bukkit.getWorld(worldName);
+
+                if (world == null) {
+                    player.sendMessage("§cThe world where the wolf is located is not loaded!");
+                    return true;
+                }
+
+                player.sendMessage("§7Loading your wolf from the world...");
+
+                // Create a final copy of wolfPath to use inside the lambda
+                final String finalWolfPath = wolfPath;
+                // Load chunk asynchronously to avoid lag
+                CompletableFuture<Chunk> futureChunk = world.getChunkAtAsyncUrgently(chunkX, chunkZ);
+                futureChunk.thenAccept(chunk -> {
+                    // Back to the main thread to do Bukkit stuff
+                    Bukkit.getScheduler().runTask(MyWolfs.getInstance(), () -> {
+                        Wolf loadedWolf = (Wolf) Bukkit.getEntity(wolfUUID);
+
+                        // 1. Release the chunk first (so it can be unloaded later, even if we fail)
+                        chunk.removePluginChunkTicket(MyWolfs.getInstance());
+
+                        // 2. Then, check if the wolf was found
+                        if (loadedWolf != null && loadedWolf.isValid()) {
+                            performTeleport(player, loadedWolf, targetName, currentTime);
+                        } else {
+                            player.sendMessage("§cCould not find your wolf. It might have died or despawned.");
+                            // Remove from database to clean up
+                            db.set(finalWolfPath, null);
+                            WolfDataManager.saveFile();
+                        }
+                    });
+                });
+            }
             return true;
         }
 
@@ -124,6 +182,7 @@ public class WolfsCommand implements CommandExecutor {
                 var pdc = wolf.getPersistentDataContainer();
                 pdc.set(MyWolfs.KEY_LEVEL, PersistentDataType.INTEGER, newLevel);
                 WolfStatsManager.applyStats(wolf);
+                WolfDataManager.updateWolf(wolf); // Update database
 
                 String officialName = pdc.getOrDefault(MyWolfs.KEY_WOLF_NAME, PersistentDataType.STRING, "Wolf");
                 wolf.setCustomName(officialName + " (Lv." + newLevel + ")");
@@ -132,19 +191,27 @@ public class WolfsCommand implements CommandExecutor {
                 return true;
             }
 
-            if (adminAction.equals("forcerm") || adminAction.equals("delete")) {
-                if (args.length < 3) {
-                    player.sendMessage("§cUsage: /wolfs admin forcerm <name>");
-                    return true;
+            if (adminAction.equals("forcerm") || adminAction.equals("delete") || adminAction.equals("frm")) {
+                Wolf wolf;
+                if (args.length >= 3) {
+                    wolf = findWolfByName(player, args[2]);
+                } else {
+                    wolf = getWolfInSight(player);
                 }
-                Wolf wolf = findWolfByName(player, args[2]);
+
                 if (wolf == null) {
-                    MyWolfs.getInstance().sendConfigMessage(player, "wolf_not_found");
+                    // Check if the wolf is in the database but unloaded
+                    if (args.length >= 3 && WolfDataManager.isNameTakenInDB(player, args[2])) {
+                        MyWolfs.getInstance().sendConfigMessage(player, "wolf_unloaded_remove", "%name%", args[2]);
+                    } else {
+                        MyWolfs.getInstance().sendConfigMessage(player, "wolf_not_found");
+                    }
                     return true;
                 }
 
                 String officialName = wolf.getPersistentDataContainer().getOrDefault(MyWolfs.KEY_WOLF_NAME, PersistentDataType.STRING, "Wolf");
                 wolf.remove();
+                WolfDataManager.deleteWolf(wolf);
                 MyWolfs.getInstance().sendConfigMessage(player, "admin_removed", "%name%", officialName);
                 return true;
             }
@@ -155,46 +222,41 @@ public class WolfsCommand implements CommandExecutor {
 
         // --- LIST COMMAND ---
         if (subCommand.equals("list")) {
-            List<Wolf> myWolves = new ArrayList<>();
+            // SYNC: Update the DB for all loaded wolves first, so levels are up-to-date
             for (Wolf wolf : player.getWorld().getEntitiesByClass(Wolf.class)) {
                 if (wolf.isTamed() && player.equals(wolf.getOwner())) {
-                    myWolves.add(wolf);
+                    WolfDataManager.updateWolf(wolf);
                 }
             }
 
-            if (myWolves.isEmpty()) {
+            List<String> wolfPaths = WolfDataManager.getPlayerWolves(player);
+
+            if (wolfPaths.isEmpty()) {
                 MyWolfs.getInstance().sendConfigMessage(player, "list_empty");
                 return true;
             }
 
-            MyWolfs.getInstance().sendConfigMessage(player, "list_header", "%count%", String.valueOf(myWolves.size()));
+            MyWolfs.getInstance().sendConfigMessage(player, "list_header", "%count%", String.valueOf(wolfPaths.size()));
 
-            for (Wolf wolf : myWolves) {
-                var pdc = wolf.getPersistentDataContainer();
-                String name = pdc.getOrDefault(MyWolfs.KEY_WOLF_NAME, PersistentDataType.STRING, "Unknown");
-                int level = pdc.getOrDefault(MyWolfs.KEY_LEVEL, PersistentDataType.INTEGER, 1);
+            for (String path : wolfPaths) {
+                String name = WolfDataManager.getConfig().getString(path + ".name", "Unknown");
+                int level = WolfDataManager.getConfig().getInt(path + ".level", 1);
 
-                Location loc = wolf.getLocation();
-                String locationStr;
+                // Get the world name and format it nicely
+                String worldName = WolfDataManager.getConfig().getString(path + ".world", "world");
+                if (worldName.equals("world")) worldName = "Overworld";
+                else if (worldName.equals("world_nether")) worldName = "Nether";
+                else if (worldName.equals("world_the_end")) worldName = "The End";
 
-                if (loc.getWorld() != null && loc.getWorld().equals(player.getWorld())) {
-                    int distance = (int) loc.distance(player.getLocation());
-                    locationStr = distance + "m";
-                } else if (loc.getWorld() != null) {
-                    locationStr = loc.getWorld().getName();
-                } else {
-                    locationStr = "Unloaded";
-                }
-
-                String formattedItem = MyWolfs.getInstance().getConfig().getString("messages.list_item", "<yellow>%name% - Lv.%level% (%location%)");
+                // Send message
+                String formattedItem = MyWolfs.getInstance().getConfig().getString("messages.list_item", "<yellow>%name% (Lv.%level%) - %world%");
                 formattedItem = formattedItem.replace("%name%", name)
                         .replace("%level%", String.valueOf(level))
-                        .replace("%location%", locationStr);
+                        .replace("%world%", worldName);
 
                 player.sendMessage(MiniMessage.miniMessage().deserialize(formattedItem));
             }
 
-            MyWolfs.getInstance().sendConfigMessage(player, "list_world_only");
             return true;
         }
 
@@ -202,7 +264,13 @@ public class WolfsCommand implements CommandExecutor {
         if (subCommand.equals("remove") || subCommand.equals("delete")) {
             Wolf wolf = findWolf(player, args);
             if (wolf == null) {
-                MyWolfs.getInstance().sendConfigMessage(player, "wolf_not_found");
+                // Check if the wolf is in the database but unloaded
+                String nameToFind = args.length > 1 ? args[1] : null;
+                if (nameToFind != null && WolfDataManager.isNameTakenInDB(player, nameToFind)) {
+                    MyWolfs.getInstance().sendConfigMessage(player, "wolf_unloaded_remove", "%name%", nameToFind);
+                } else {
+                    MyWolfs.getInstance().sendConfigMessage(player, "wolf_not_found");
+                }
                 return true;
             }
 
@@ -214,6 +282,7 @@ public class WolfsCommand implements CommandExecutor {
             }
 
             wolf.remove();
+            WolfDataManager.deleteWolf(wolf);
             MyWolfs.getInstance().sendConfigMessage(player, "wolf_removed");
             return true;
         }
@@ -251,6 +320,9 @@ public class WolfsCommand implements CommandExecutor {
 
             int level = pdc.getOrDefault(MyWolfs.KEY_LEVEL, PersistentDataType.INTEGER, 1);
             wolf.setCustomName(newName + " (Lv." + level + ")");
+
+            // Update database name
+            WolfDataManager.updateWolf(wolf);
 
             MyWolfs.getInstance().sendConfigMessage(player, "wolf_renamed", "%name%", newName);
             return true;
@@ -316,6 +388,17 @@ public class WolfsCommand implements CommandExecutor {
     }
 
     // --- HELPER METHODS ---
+
+    private void performTeleport(Player player, Wolf wolf, String wolfName, long currentTime) {
+        // Make the wolf stand and teleport to the player
+        wolf.setSitting(false);
+        wolf.teleport(player.getLocation());
+
+        // Set cooldown
+        callCooldowns.put(player.getUniqueId(), currentTime);
+
+        MyWolfs.getInstance().sendConfigMessage(player, "call_success", "%name%", wolfName);
+    }
 
     private Wolf findWolf(Player player, String[] args) {
         if (args.length > 1) {

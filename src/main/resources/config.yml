@@ -16,17 +16,17 @@ messages:
   wolf_limit_reached: "<red>You have reached the maximum number of wolves (%max%)! This new wolf will not level up."
   baby_born: "<yellow>A baby wolf was born! It will remain vanilla and cannot level up."
   list_header: "<gold>=== Your Wolves (%count%) ==="
-  list_item: "<yellow>%name% <gray>- Lv.%level% <white>(%location%)"
+  list_item: "<yellow>%name% <gray>(Lv.%level%) <white>- %world%"
   list_empty: "<red>You don't have any wolves."
   list_coords: "<white>%x%, %y%, %z%"
   list_world: "<white>%world%"
   list_unloaded: "<gray>Unloaded"
-  list_world_only: "<gray>(Showing only wolves in your current world)"
   level_set: "<green>Set %name%'s level to %level%!"
   admin_removed: "<green>Admin: Successfully removed %name%."
   call_success: "<green>%name% has been teleported to you!"
   call_cooldown: "<red>You must wait %time% seconds before calling another wolf."
   call_already_near: "<red>%name% is already close to you!"
+  wolf_unloaded_remove: "<red>You cannot remove a wolf that is unloaded! <gray>Use <yellow>/wolfs call %name%</yellow> to bring it to you first, then remove it."
 
   # Help Menu
   help_header: "<gold>=== MyWolfs Commands ==="
@@ -115,4 +115,5 @@ mob_xp:
 
   # Settings
   settings:
-    call_cooldown_seconds: 30
+      call_cooldown_seconds: 30
+      autosave_interval_minutes: 5

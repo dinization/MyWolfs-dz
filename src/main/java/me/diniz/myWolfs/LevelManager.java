@@ -77,4 +77,11 @@ public class LevelManager implements Listener {
 
         pdc.set(MyWolfs.KEY_XP, PersistentDataType.INTEGER, newXp);
     }
+
+    @EventHandler
+    public void onWolfDeath(EntityDeathEvent event) {
+        if (event.getEntity() instanceof Wolf wolf && wolf.isTamed()) {
+            WolfDataManager.deleteWolf(wolf);
+        }
+    }
 }

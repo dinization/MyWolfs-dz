@@ -22,41 +22,44 @@ public class BreedingListener implements Listener {
 
         var pdc = babyWolf.getPersistentDataContainer();
 
-        // Mark as baby (Level 0 = cannot level up)
+        // 1. Set a TEMPORARY name to avoid occupying the real names in the database
+        pdc.set(MyWolfs.KEY_WOLF_NAME, PersistentDataType.STRING, "TEMP_" + babyWolf.getUniqueId().toString().substring(0, 5));
+
+        // 2. Save to database first so it exists (even though it's level 0)
+        WolfDataManager.saveWolf(babyWolf, owner);
+
+        // Mark as baby (Level 0 = cannot level up, doesn't count for limit)
         pdc.set(MyWolfs.KEY_LEVEL, PersistentDataType.INTEGER, 0);
         pdc.set(MyWolfs.KEY_XP, PersistentDataType.INTEGER, 0);
         pdc.set(MyWolfs.KEY_IS_BABY, PersistentDataType.BOOLEAN, true);
 
-        // Give it a name (Wolf-Baby or similar, or just generate unique)
-        String uniqueName = generateBabyName(babyWolf, owner);
+        // 3. Generate the REAL name now that the DB is safe
+        String uniqueName = generateBabyName(owner);
         pdc.set(MyWolfs.KEY_WOLF_NAME, PersistentDataType.STRING, uniqueName);
+
         babyWolf.setCustomName(uniqueName + " (Baby)");
         babyWolf.setCustomNameVisible(true);
 
         // Apply vanilla stats (base 20 HP, no RPG bonus) and fix the modifiers
         WolfStatsManager.applyStats(babyWolf);
 
-        // Notify the owner that the baby won't level up
+        // 4. Save to database again with the final data and real name
+        WolfDataManager.updateWolf(babyWolf);
+
+        // Notify the owner
         MyWolfs.getInstance().sendConfigMessage(owner, "baby_born");
     }
 
-    private String generateBabyName(Wolf babyWolf, Player owner) {
+    // Helper method using the database instead of scanning the world
+    private String generateBabyName(Player owner) {
         int suffix = 1;
         while (true) {
             String testName = "Baby-Wolf" + (suffix == 1 ? "" : "-" + suffix);
-            boolean taken = false;
-            for (Wolf wolf : owner.getWorld().getEntitiesByClass(Wolf.class)) {
-                if (wolf.isTamed() && owner.equals(wolf.getOwner()) && !wolf.equals(babyWolf)) {
-                    String name = wolf.getPersistentDataContainer().getOrDefault(
-                            MyWolfs.KEY_WOLF_NAME, PersistentDataType.STRING, ""
-                    );
-                    if (name.equals(testName)) {
-                        taken = true;
-                        break;
-                    }
-                }
+
+            // Use the database to check if the name is taken
+            if (!WolfDataManager.isNameTakenInDB(owner, testName)) {
+                return testName;
             }
-            if (!taken) return testName;
             suffix++;
         }
     }

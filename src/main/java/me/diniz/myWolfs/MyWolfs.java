@@ -1,6 +1,7 @@
 package me.diniz.myWolfs;
 
 import net.kyori.adventure.text.minimessage.MiniMessage;
+import org.bukkit.Bukkit;
 import org.bukkit.NamespacedKey;
 import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -27,6 +28,10 @@ public final class MyWolfs extends JavaPlugin {
 
         // Creates config.yml
         saveDefaultConfig();
+        // Creates wolves.yml
+        saveResource("wolves.yml", false);
+
+        WolfDataManager.setup();
 
         // Initializes keys
         KEY_WOLF_NAME = new NamespacedKey(this, "wolf_name");
@@ -44,15 +49,30 @@ public final class MyWolfs extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new LevelManager(), this);
         getServer().getPluginManager().registerEvents(new CombatListener(), this);
         getServer().getPluginManager().registerEvents(new BreedingListener(), this);
+        getServer().getPluginManager().registerEvents(new WolfSafetyListener(), this);
 
         // Command Reg
         this.getCommand("wolfs").setExecutor(new WolfsCommand());
 
+        // --- AUTOSAVE SCHEDULER ---
+        int intervalMinutes = getConfig().getInt("settings.autosave_interval_minutes", 5);
+        long ticks = intervalMinutes * 60L * 20L; // Convert minutes to ticks (20 ticks = 1 second)
+
+        // Run on the main thread to safely read entities,
+        // but the actual file saving is handled asynchronously inside the manager.
+        Bukkit.getScheduler().runTaskTimer(this, () -> {
+            WolfDataManager.saveAllWolvesSync();
+        }, ticks, ticks);
+
+        getLogger().info("Autosave scheduled every " + intervalMinutes + " minutes.");
         getLogger().info("MyWolfs enabled successfully!");
     }
 
     @Override
     public void onDisable() {
+        // Save all wolves synchronously before the server shuts down
+        WolfDataManager.saveAllWolvesOnShutdown();
+
         getLogger().info("MyWolfs disabled.");
     }
 
