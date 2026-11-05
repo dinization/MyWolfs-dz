@@ -8,6 +8,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityTameEvent;
 import org.bukkit.persistence.PersistentDataType;
 
+import java.util.List;
 import java.util.Random;
 
 public class DomesticationListener implements Listener {
@@ -39,16 +40,32 @@ public class DomesticationListener implements Listener {
             int maxWolves = plugin.getConfig().getInt("max_wolves", 3);
             int currentWolfCount = WolfDataManager.getRPGWolfCount(owner);
 
-            // If the limit is reached, make it a Level 0 wolf (vanilla)
+            // If the limit is reached, make it a Level 0 wolf (Over Limit)
             if (currentWolfCount > maxWolves) {
                 pdc.set(MyWolfs.KEY_LEVEL, PersistentDataType.INTEGER, 0);
                 pdc.set(MyWolfs.KEY_XP, PersistentDataType.INTEGER, 0);
                 pdc.set(MyWolfs.KEY_IS_BABY, PersistentDataType.BOOLEAN, true);
 
+                // Roll ranks for the Over Limit wolf
+                pdc.set(MyWolfs.KEY_RANK_HEALTH, PersistentDataType.STRING, rollRank());
+                pdc.set(MyWolfs.KEY_RANK_DAMAGE, PersistentDataType.STRING, rollRank());
+                pdc.set(MyWolfs.KEY_RANK_SPEED, PersistentDataType.STRING, rollRank());
+                pdc.set(MyWolfs.KEY_RANK_ARMOR, PersistentDataType.STRING, rollRank());
+
+                // NEW: Roll a random upgrade item from the config
+                List<String> upgradeItems = plugin.getConfig().getStringList("upgrade_items");
+                String requiredItem = "DIAMOND"; // Fallback
+                if (!upgradeItems.isEmpty()) {
+                    requiredItem = upgradeItems.get(random.nextInt(upgradeItems.size()));
+                }
+                pdc.set(MyWolfs.KEY_UPGRADE_ITEM, PersistentDataType.STRING, requiredItem);
+
                 // 4. Generate the REAL name now that the DB is safe
                 String uniqueName = generateUniqueName(owner);
                 pdc.set(MyWolfs.KEY_WOLF_NAME, PersistentDataType.STRING, uniqueName);
-                wolf.setCustomName(uniqueName + " (Over Limit)");
+
+                // Display the name with the required item
+                wolf.setCustomName(uniqueName + " (Over Limit - Needs " + requiredItem + ")");
                 wolf.setCustomNameVisible(true);
 
                 WolfStatsManager.applyStats(wolf);
@@ -91,12 +108,10 @@ public class DomesticationListener implements Listener {
 
     // Helper method to generate a unique name using the database
     private String generateUniqueName(Player owner) {
-        // If "Wolf" is free in the database, use it
         if (!WolfDataManager.isNameTakenInDB(owner, "Wolf")) {
             return "Wolf";
         }
 
-        // Otherwise, try Wolf-2, Wolf-3, etc.
         int suffix = 2;
         while (WolfDataManager.isNameTakenInDB(owner, "Wolf-" + suffix)) {
             suffix++;

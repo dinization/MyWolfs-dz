@@ -2,8 +2,10 @@
 
 messages:
   wolf_tamed: "<gold>You tamed a new wolf! It is Level 1."
-  confirm_remove: "<red>Are you sure you want to delete %name%? Type /wolf remove %name% confirm to proceed."
-  wolf_removed: "<red>You have removed your wolf."
+  confirm_remove: "<red>Are you sure you want to delete %name%? Type <yellow>/wolfs confirm</yellow> to proceed."
+  wolf_removed: "<red>You have successfully removed %name%."
+  confirm_expired: "<red>You have no pending removals, or the request expired."
+  confirm_unloaded: "<red>The wolf unloaded before confirmation. Please use <yellow>/wolfs call</yellow> to bring it to you first."
   not_your_wolf: "<red>This wolf does not belong to you!"
   not_looking_at_wolf: "<red>You must be looking at a wolf!"
   level_up: "<green>Your wolf leveled up to Level %level%!"
@@ -13,7 +15,7 @@ messages:
   name_already_in_use: "<red>You already have a wolf named %name%!"
   wolf_not_found: "<red>Wolf not found by that name! <gray>(Make sure the wolf is in your current world)"
   invalid_name: "<red>Invalid name! Use only letters, numbers, and hyphens."
-  wolf_limit_reached: "<red>You have reached the maximum number of wolves (%max%)! This new wolf will not level up."
+  wolf_limit_reached: "<red>Your pack is full! This wolf was born as a Level 0. Check its Ranks with /wolfs ranks to see if it's worth upgrading."
   baby_born: "<yellow>A baby wolf was born! It will remain vanilla and cannot level up."
   list_header: "<gold>=== Your Wolves (%count%) ==="
   list_item: "<yellow>%name% <gray>(Lv.%level%) <white>- %world%"
@@ -24,22 +26,55 @@ messages:
   level_set: "<green>Set %name%'s level to %level%!"
   admin_removed: "<green>Admin: Successfully removed %name%."
   call_success: "<green>%name% has been teleported to you!"
+  call_success_overlimit: "<green>%name% has been teleported to you! <gray>Remember: This wolf is Level 0. To upgrade it, you need to remove a Level 1+ wolf and give it: %item%."
   call_cooldown: "<red>You must wait %time% seconds before calling another wolf."
   call_already_near: "<red>%name% is already close to you!"
   wolf_unloaded_remove: "<red>You cannot remove a wolf that is unloaded! <gray>Use <yellow>/wolfs call %name%</yellow> to bring it to you first, then remove it."
+  mode_normal: "<green>Your wolf is now in Normal mode."
+  mode_aggressive: "<red>Your wolf is now in Aggressive mode! It will attack nearby monsters."
+  wolf_bored: "<gold>[MyWolfs] <yellow>Your wolf got bored and returned to normal mode."
+  wolf_overlimit_info: "<yellow>To upgrade this wolf to Level 1, you need: %item%"
+  wolf_promoted: "<green>Success! Your wolf is now Level 1."
+  wolf_promotion_failed_limit: "<red>You must remove another Level 1+ wolf first to make room!"
+  wolf_promotion_wrong_item: "<red>This wolf needs a different item to upgrade. Use /wolfs ranks to check."
+
+  # Usage messages
+  usage_call: "<red>Usage: /wolfs call <name>"
+  usage_admin: "<red>Usage: /wolfs admin <setlevel|forcerm> [args]"
+  usage_setlevel: "<red>Usage: /wolfs admin setlevel <name> <level>"
+  usage_mode: "<red>Usage: /wolfs mode <agg|normal>"
+  usage_rename: "<red>Usage: /wolfs rename <oldName> <newName> OR /wolfs rename <newName> (while looking at wolf)"
+
+  # Errors
+  level_not_number: "<red>Level must be a number."
+  unknown_admin_action: "<red>Unknown admin action. Use setlevel or forcerm."
+  unknown_subcommand: "<red>Unknown subcommand. Usage: /wolfs [ranks|stats|list|call|rename|remove|help|admin]"
+  invalid_mode: "<red>Invalid mode. Use 'agg' or 'normal'."
+  already_aggressive: "<yellow>This wolf is already in Aggressive mode."
+  already_normal: "<yellow>This wolf is already in Normal mode."
+
+  # Call errors
+  world_not_loaded: "<red>The world where the wolf is located is not loaded!"
+  loading_wolf: "<gray>Loading your wolf from the world..."
+  call_not_found: "<red>Could not find your wolf. It might have died or despawned."
 
   # Help Menu
   help_header: "<gold>=== MyWolfs Commands ==="
-  help_ranks: "<yellow>/wolfs ranks [name] <gray>- Shows the RPG ranks of your wolf."
+  help_ranks: "<yellow>/wolfs ranks [name] <gray>- Shows the RPG ranks, level, and XP."
   help_stats: "<yellow>/wolfs stats [name] <gray>- Shows the raw numerical stats."
-  help_list: "<yellow>/wolfs list <gray>- Lists all your wolves in the current world."
-  help_call: "<yellow>/wolfs call [name] <gray>- Teleports your wolf to you (%cooldown%s cooldown)."
+  help_list: "<yellow>/wolfs list <gray>- Lists all your wolves and their current world."
+  help_call: "<yellow>/wolfs call <name> <gray>- Teleports your wolf to you (%cooldown%s cooldown)."
+  help_mode: "<yellow>/wolfs mode <agg|normal> [name] <gray>- Changes the wolf's combat behavior."
   help_rename: "<yellow>/wolfs rename <oldName> <newName> <gray>- Renames a wolf."
-  help_remove: "<yellow>/wolfs remove [name] confirm <gray>- Safely deletes a wolf."
+  help_remove: "<yellow>/wolfs remove [name] <gray>- Safely deletes a wolf (requires confirmation)."
+
   help_admin_header: "<red>=== Admin Commands ==="
   help_admin_setlevel: "<red>/wolfs admin setlevel <name> <level> <gray>- Sets a wolf's level."
   help_admin_forcerm: "<red>/wolfs admin forcerm <name> <gray>- Instantly deletes a wolf."
+
   help_footer: "<gray>Tip: If you don't specify a name, the plugin will look at the wolf you are aiming at."
+  help_upgrade_info: "<gray>Over-limit wolves (Level 0) need a specific item to be promoted. Use <yellow>/wolfs ranks</yellow> to see what they need! (you still need to remove another wolf to make room for it)"
+
 # Ranks and their multipliers
 ranks:
   S: 1.5
@@ -51,10 +86,10 @@ ranks:
 
 # Stat gains per level (Base values multiplied by rank)
 stats:
-  health_per_level: 0.5
-  damage_per_level: 0.1
-  speed_per_level: 0.01
-  armor_per_level: 0.4
+  health_per_level: 1.5
+  damage_per_level: 0.2
+  speed_per_level: 0.005
+  armor_per_level: 0.6
 
 # Maximum number of RPG wolves a player can have
 # Wolves tamed beyond this limit will be Level 0 (cannot level up)
@@ -85,6 +120,7 @@ mob_xp:
   ZOMBIFIED_PIGLIN: 20
 
   # Medium xp
+  ZOMBIE_VILLAGER: 25
   CREEPER: 25
   WITCH: 35
   PILLAGER: 25
@@ -99,7 +135,7 @@ mob_xp:
   ELDER_GUARDIAN: 150
   SHULKER: 40
   ENDERMAN: 60
-  PIGLIN_BRUTE: 55
+  PIGLIN_BRUTE: 60
   HOGLIN: 45
   ZOGLIN: 45
   RAVAGER: 100
@@ -111,9 +147,21 @@ mob_xp:
   WARDEN: 2000
 
   # Default for mobs not in the list
-  DEFAULT: 5
+  DEFAULT: 10
 
-  # Settings
-  settings:
-      call_cooldown_seconds: 30
-      autosave_interval_minutes: 5
+# List of items that can be rolled to upgrade a wolf from Level 0 to Level 1
+upgrade_items:
+  - DIAMOND_BLOCK
+  - EMERALD_BLOCK
+  - GOLDEN_APPLE
+  - EXPERIENCE_BOTTLE
+  - ENDER_PEARL
+  - RABBIT_FOOT
+
+# Settings
+settings:
+  call_cooldown_seconds: 30
+  autosave_interval_minutes: 5
+
+# Do not change this manually
+config_version: "1.2.0"

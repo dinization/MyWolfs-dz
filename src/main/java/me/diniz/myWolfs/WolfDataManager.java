@@ -12,12 +12,14 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 public class WolfDataManager {
 
     private static File file;
     private static FileConfiguration config;
 
+    //region SETUP & MIGRATION
     public static void setup() {
         file = new File(MyWolfs.getInstance().getDataFolder(), "wolves.yml");
         if (!file.exists()) {
@@ -28,8 +30,30 @@ public class WolfDataManager {
             }
         }
         config = YamlConfiguration.loadConfiguration(file);
+
+        // --- DATABASE MIGRATION LOGIC ---
+        String currentVersion = MyWolfs.getInstance().getPluginMeta().getVersion();
+        String dbVersion = config.getString("database_version", "1.0.0");
+
+        if (!dbVersion.equals(currentVersion)) {
+            MyWolfs.getInstance().getLogger().info("Database version mismatch! Updating from " + dbVersion + " to " + currentVersion + "...");
+
+            migrateDatabase(dbVersion, currentVersion);
+
+            config.set("database_version", currentVersion);
+            saveFile();
+
+            MyWolfs.getInstance().getLogger().info("Database migration complete!");
+        }
     }
 
+    private static void migrateDatabase(String oldVersion, String newVersion) {
+        // Future data migrations go here
+        // Example: if (oldVersion.equals("1.2.0")) { ... }
+    }
+    //endregion
+
+    //region SAVE & UPDATE WOLVES
     public static void saveWolf(Wolf wolf, Player owner) {
         String uuid = wolf.getUniqueId().toString();
         String path = "wolves." + uuid;
@@ -54,6 +78,18 @@ public class WolfDataManager {
         config.set(path + ".ranks.damage", rankDamage);
         config.set(path + ".ranks.speed", rankSpeed);
         config.set(path + ".ranks.armor", rankArmor);
+        config.set(path + ".upgrade_item", pdc.getOrDefault(MyWolfs.KEY_UPGRADE_ITEM, PersistentDataType.STRING, ""));
+
+        // Save calculated stats to DB for quick access
+        var attrHealth = wolf.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
+        var attrDamage = wolf.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE);
+        var attrSpeed = wolf.getAttribute(org.bukkit.attribute.Attribute.MOVEMENT_SPEED);
+        var attrArmor = wolf.getAttribute(org.bukkit.attribute.Attribute.ARMOR);
+
+        config.set(path + ".stats.health", attrHealth != null ? attrHealth.getValue() : 20.0);
+        config.set(path + ".stats.damage", attrDamage != null ? attrDamage.getValue() : 4.0);
+        config.set(path + ".stats.speed", attrSpeed != null ? attrSpeed.getValue() : 0.3);
+        config.set(path + ".stats.armor", attrArmor != null ? attrArmor.getValue() : 0.0);
 
         updateLocation(wolf, path);
         saveFile();
@@ -79,6 +115,18 @@ public class WolfDataManager {
         config.set(path + ".ranks.damage", pdc.getOrDefault(MyWolfs.KEY_RANK_DAMAGE, PersistentDataType.STRING, "C"));
         config.set(path + ".ranks.speed", pdc.getOrDefault(MyWolfs.KEY_RANK_SPEED, PersistentDataType.STRING, "C"));
         config.set(path + ".ranks.armor", pdc.getOrDefault(MyWolfs.KEY_RANK_ARMOR, PersistentDataType.STRING, "C"));
+        config.set(path + ".upgrade_item", pdc.getOrDefault(MyWolfs.KEY_UPGRADE_ITEM, PersistentDataType.STRING, ""));
+
+        // Save calculated stats to DB for quick access
+        var attrHealth = wolf.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
+        var attrDamage = wolf.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE);
+        var attrSpeed = wolf.getAttribute(org.bukkit.attribute.Attribute.MOVEMENT_SPEED);
+        var attrArmor = wolf.getAttribute(org.bukkit.attribute.Attribute.ARMOR);
+
+        config.set(path + ".stats.health", attrHealth != null ? attrHealth.getValue() : 20.0);
+        config.set(path + ".stats.damage", attrDamage != null ? attrDamage.getValue() : 4.0);
+        config.set(path + ".stats.speed", attrSpeed != null ? attrSpeed.getValue() : 0.3);
+        config.set(path + ".stats.armor", attrArmor != null ? attrArmor.getValue() : 0.0);
 
         updateLocation(wolf, path);
         saveFile();
@@ -87,46 +135,59 @@ public class WolfDataManager {
     // Helper method to save chunk coordinates
     private static void updateLocation(Wolf wolf, String path) {
         config.set(path + ".world", wolf.getWorld().getName());
-        // We save the chunk coordinates instead of exact X, Y, Z
         config.set(path + ".chunk_x", wolf.getLocation().getChunk().getX());
         config.set(path + ".chunk_z", wolf.getLocation().getChunk().getZ());
     }
+    //endregion
 
-    // Delete the wolf from the database
+    //region DELETE WOLVES
     public static void deleteWolf(Wolf wolf) {
         String uuid = wolf.getUniqueId().toString();
         String path = "wolves." + uuid;
 
         if (config.contains(path)) {
-            config.set(path, null); // Setting to null deletes the section
+            config.set(path, null);
             saveFile();
         }
     }
 
-    // --- AUTOSAVE LOGIC ---
+    public static void deleteWolfById(UUID wolfUUID) {
+        String path = "wolves." + wolfUUID.toString();
 
-    // Gathers all loaded wolves safely on the main thread
+        // Load a FRESH copy of the file directly from disk
+        YamlConfiguration freshConfig = YamlConfiguration.loadConfiguration(file);
+
+        if (freshConfig.contains(path)) {
+            freshConfig.set(path, null);
+            try {
+                freshConfig.save(file);
+                config = freshConfig; // Update memory
+            } catch (IOException e) {
+                MyWolfs.getInstance().getLogger().severe("Error saving file during deletion!");
+            }
+        }
+    }
+    //endregion
+
+    //region AUTOSAVE & SHUTDOWN
     public static void saveAllWolvesSync() {
         for (World world : Bukkit.getWorlds()) {
             for (Wolf wolf : world.getEntitiesByClass(Wolf.class)) {
                 if (wolf.isTamed()) {
-                    // Update memory only (no disk I/O yet)
                     updateWolfNoSave(wolf);
                 }
             }
         }
-        // After updating all wolves in memory, trigger the async save once
         saveFileAsync();
     }
 
-    // Helper method to update memory without saving to disk
     private static void updateWolfNoSave(Wolf wolf) {
         String uuid = wolf.getUniqueId().toString();
         String path = "wolves." + uuid;
 
         if (!config.contains(path)) {
             Player owner = (Player) wolf.getOwner();
-            if (owner != null) saveWolf(wolf, owner); // Rare case, still saves
+            if (owner != null) saveWolf(wolf, owner);
             return;
         }
 
@@ -136,10 +197,24 @@ public class WolfDataManager {
         updateLocation(wolf, path);
     }
 
-    // Saves the file asynchronously to prevent server lag
+    public static void saveAllWolvesOnShutdown() {
+        for (World world : Bukkit.getWorlds()) {
+            for (Wolf wolf : world.getEntitiesByClass(Wolf.class)) {
+                if (wolf.isTamed()) {
+                    // Use the full update to ensure stats are saved too
+                    updateWolf(wolf);
+                }
+            }
+        }
+        try {
+            config.save(file);
+        } catch (IOException e) {
+            MyWolfs.getInstance().getLogger().severe("Could not save wolves.yml on shutdown!");
+        }
+    }
+
     public static void saveFileAsync() {
         Bukkit.getScheduler().runTaskAsynchronously(MyWolfs.getInstance(), () -> {
-            // Synchronized block prevents two threads from writing to the file at the same time
             synchronized (config) {
                 try {
                     config.save(file);
@@ -150,8 +225,6 @@ public class WolfDataManager {
         });
     }
 
-    // --- UTILS ---
-
     public static void saveFile() {
         try {
             config.save(file);
@@ -159,12 +232,13 @@ public class WolfDataManager {
             MyWolfs.getInstance().getLogger().severe("Could not save wolves.yml!");
         }
     }
+    //endregion
 
+    //region DATABASE QUERIES
     public static FileConfiguration getConfig() {
         return config;
     }
 
-    // Get a list of paths for all wolves owned by a player
     public static List<String> getPlayerWolves(Player player) {
         List<String> paths = new ArrayList<>();
         if (config.getConfigurationSection("wolves") == null) return paths;
@@ -178,7 +252,6 @@ public class WolfDataManager {
         return paths;
     }
 
-    // Count how many RPG wolves (level > 0) a player has in the database
     public static int getRPGWolfCount(Player player) {
         int count = 0;
         if (config.getConfigurationSection("wolves") == null) return 0;
@@ -195,7 +268,6 @@ public class WolfDataManager {
         return count;
     }
 
-    // Check if a specific name is already taken by the player in the database
     public static boolean isNameTakenInDB(Player player, String name) {
         if (config.getConfigurationSection("wolves") == null) return false;
 
@@ -210,21 +282,5 @@ public class WolfDataManager {
         }
         return false;
     }
-
-    // Saves all wolves synchronously (used only when server is shutting down)
-    public static void saveAllWolvesOnShutdown() {
-        for (org.bukkit.World world : org.bukkit.Bukkit.getWorlds()) {
-            for (Wolf wolf : world.getEntitiesByClass(Wolf.class)) {
-                if (wolf.isTamed()) {
-                    updateWolfNoSave(wolf);
-                }
-            }
-        }
-        // Save synchronously, not asynchronously
-        try {
-            config.save(file);
-        } catch (IOException e) {
-            MyWolfs.getInstance().getLogger().severe("Could not save wolves.yml on shutdown!");
-        }
-    }
+    //endregion
 }

@@ -18,6 +18,7 @@ public final class MyWolfs extends JavaPlugin {
     public static NamespacedKey KEY_LAST_ATTACKER;
     public static NamespacedKey KEY_WOLF_NAME;
     public static NamespacedKey KEY_IS_BABY;
+    public static NamespacedKey KEY_UPGRADE_ITEM;
 
     private static MyWolfs instance;
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
@@ -31,7 +32,22 @@ public final class MyWolfs extends JavaPlugin {
         // Creates wolves.yml
         saveResource("wolves.yml", false);
 
+        //region MIGRATION LOGIC
+        String currentVersion = getPluginMeta().getVersion();
+        String configVersion = getConfig().getString("config_version", "1.0.0");
+
+        if (!configVersion.equals(currentVersion)) {
+            getLogger().info("Config version mismatch! Updating from " + configVersion + " to " + currentVersion + "...");
+            getConfig().set("config_version", currentVersion);
+            saveConfig();
+        }
+
+        //endregion
+
         WolfDataManager.setup();
+
+        // Start the Mode Task (Aggressive Mode check)
+        WolfModeManager.startTask(this);
 
         // Initializes keys
         KEY_WOLF_NAME = new NamespacedKey(this, "wolf_name");
@@ -43,6 +59,7 @@ public final class MyWolfs extends JavaPlugin {
         KEY_RANK_ARMOR = new NamespacedKey(this, "rank_armor");
         KEY_LAST_ATTACKER = new NamespacedKey(this, "last_attacker");
         KEY_IS_BABY = new NamespacedKey(this, "is_baby");
+        KEY_UPGRADE_ITEM = new NamespacedKey(this, "upgrade_item");
 
         // Listeners Reg
         getServer().getPluginManager().registerEvents(new DomesticationListener(this), this);
@@ -50,6 +67,7 @@ public final class MyWolfs extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new CombatListener(), this);
         getServer().getPluginManager().registerEvents(new BreedingListener(), this);
         getServer().getPluginManager().registerEvents(new WolfSafetyListener(), this);
+        getServer().getPluginManager().registerEvents(new UpgradeListener(), this);
 
         // Command Reg
         this.getCommand("wolfs").setExecutor(new WolfsCommand());
