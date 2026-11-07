@@ -21,14 +21,11 @@ public class FoxListener implements Listener {
     public void onBreed(EntityBreedEvent event) {
         if (!(event.getEntity() instanceof Fox babyFox)) return;
 
-        // Wait 1 tick so the Minecraft vanilla finishes setting up the trust
         Bukkit.getScheduler().runTaskLater(MyWolfs.getInstance(), () -> {
             if (!babyFox.isValid()) return;
 
-            // Search players in a 20-block radius
             for (Entity nearby : babyFox.getNearbyEntities(20, 20, 20)) {
                 if (nearby instanceof Player player) {
-                    // Check if the baby fox trusts this player
                     if (isFoxTrusted(babyFox, player)) {
                         MyWolfs.getInstance().sendConfigMessage(player, "fox_adoption_available");
                     }
@@ -46,67 +43,63 @@ public class FoxListener implements Listener {
         Player player = event.getPlayer();
         ItemStack itemInHand = player.getInventory().getItemInMainHand();
 
-        // Check if the player is holding Raw Chicken
         if (itemInHand.getType() != Material.CHICKEN) return;
 
-        // Check if the fox is already claimed
         String ownerUUID = fox.getPersistentDataContainer().get(MyWolfs.KEY_FOX_OWNER, PersistentDataType.STRING);
         if (ownerUUID != null && !ownerUUID.isEmpty()) {
             MyWolfs.getInstance().sendConfigMessage(player, "fox_already_claimed");
             return;
         }
 
-        // Check if the player is trusted by the fox (vanilla requirement)
-        if (!isFoxTrusted(fox, player)) {
-            return; // Ignore silently if the player isn't trusted
-        }
+        if (!isFoxTrusted(fox, player)) return;
 
-        // Check the fox limit
         int maxFoxes = MyWolfs.getInstance().getConfig().getInt("max_foxes", 3);
         int currentFoxCount = FoxDataManager.getFoxCount(player);
 
         if (currentFoxCount >= maxFoxes) {
             MyWolfs.getInstance().sendConfigMessage(player, "fox_limit_reached", "%max%", String.valueOf(maxFoxes));
-            return; // Stop the adoption process
+            return;
         }
 
         // --- ADOPTION SUCCESSFUL ---
-        // 1. Remove 1 Raw Chicken from the player's hand
         itemInHand.setAmount(itemInHand.getAmount() - 1);
+        setupAdoptedFox(fox, player);
+        MyWolfs.getInstance().sendConfigMessage(player, "fox_claimed");
+    }
 
-        // 2. Generate a unique name (Fox, Fox-2, etc.)
-        String uniqueName = generateUniqueName(player);
+    /**
+     * Public method to setup a fox when it's adopted (or spawned by admin).
+     * This handles generating the name, saving to PDC, and saving to the database.
+     */
+    public static void setupAdoptedFox(Fox fox, Player owner) {
+        // Force the fox to trust the owner (vanilla requirement for spawned foxes)
+        fox.setFirstTrustedPlayer(owner);
+        // Generate a unique name (Fox, Fox-2, etc.)
+        String uniqueName = generateUniqueName(owner);
         fox.getPersistentDataContainer().set(MyWolfs.KEY_FOX_NAME, PersistentDataType.STRING, uniqueName);
 
-        // 3. Set visual CustomName
+        // Set visual CustomName
         fox.customName(net.kyori.adventure.text.Component.text(uniqueName));
         fox.setCustomNameVisible(true);
 
-        // 4. Save the fox to the database (this also saves the owner to PDC)
-        FoxDataManager.saveFox(fox, player);
-
-        // 5. Notify the player
-        MyWolfs.getInstance().sendConfigMessage(player, "fox_claimed");
+        // Save the fox to the database (this also saves the owner to PDC)
+        FoxDataManager.saveFox(fox, owner);
     }
 
     //region Helper Methods
 
-    // Clean up the database when a fox dies
     @EventHandler
     public void onFoxDeath(EntityDeathEvent event) {
         if (event.getEntity() instanceof Fox fox) {
-            // Check if the fox is in the database (has an owner in PDC)
             String ownerUUID = fox.getPersistentDataContainer().get(MyWolfs.KEY_FOX_OWNER, PersistentDataType.STRING);
-
             if (ownerUUID != null && !ownerUUID.isEmpty()) {
-                // Delete from database to clean up
                 FoxDataManager.deleteFox(fox);
             }
         }
     }
 
-    // Check if a player is trusted by the fox
-    private boolean isFoxTrusted(Fox fox, Player player) {
+    // Made static so it can be used in setupAdoptedFox
+    private static boolean isFoxTrusted(Fox fox, Player player) {
         if (fox.getFirstTrustedPlayer() != null && fox.getFirstTrustedPlayer().getUniqueId().equals(player.getUniqueId())) {
             return true;
         }
@@ -116,8 +109,8 @@ public class FoxListener implements Listener {
         return false;
     }
 
-    // Generates custom name
-    private String generateUniqueName(Player owner) {
+    // Made static so it can be used in setupAdoptedFox
+    private static String generateUniqueName(Player owner) {
         var db = FoxDataManager.getConfig();
         java.util.List<String> existingNames = new java.util.ArrayList<>();
 

@@ -59,7 +59,7 @@ public final class MyWolfs extends JavaPlugin {
 
 
         // Listeners Reg
-        getServer().getPluginManager().registerEvents(new DomesticationListener(this), this);
+        getServer().getPluginManager().registerEvents(new DomesticationListener(), this);
         getServer().getPluginManager().registerEvents(new LevelManager(), this);
         getServer().getPluginManager().registerEvents(new CombatListener(), this);
         getServer().getPluginManager().registerEvents(new BreedingListener(), this);

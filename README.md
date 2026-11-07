@@ -1,19 +1,24 @@
 # MyWolfs
 
-An RPG plugin for Paper that turns tamed wolves into levelable companions with unique stats (Ranks) and progression.
+An RPG plugin for Paper that turns tamed wolves and foxes into levelable companions with unique stats (Ranks) and progression.
 
-MyWolfs intends to give players a real reason to tame and use Minecraft wolves.
+MyWolfs intends to give players a real reason to tame and use Minecraft's companion mobs.
 
 When a player tames a wolf, random ranks (S to E) are rolled for its stats. As the wolf levels up by killing mobs, its stats increase — and higher ranks mean those stats will scale much more effectively.
 
-For balancing reasons, once a player tames a certain number of wolves (configurable), their next tames will result in Level 0 wolves, which cannot level up. The player can inspect the new wolf's ranks, and if they like it more than their current wolves, they can remove one of their old wolves to make room. Then, by feeding the Level 0 wolf its desired item (which is randomized from a configurable list), they can evolve it into a normal Level 1 wolf.
+For balancing reasons, once a player tames a certain number of wolves (configurable), their next tames will result in Level 0 wolves. The player can inspect the ranks and evolve the wolf by feeding it a specific item.
+
+Additionally, players can adopt Foxes as "Support Pets". They provide passive buffs (like Regeneration) to your wolves, and they can be brought into battle!
 
 ## Features
-- **Rank System:** Wolves receive random ranks (S to E) for Health, Damage, Speed, and Armor upon taming.
-- **Leveling:** Wolves gain XP and level up by killing mobs, increasing their stats based on their Ranks.
-- **Async Calling:** `/wolfs call` can teleport wolves from other worlds or unloaded chunks without causing server lag.
-- **Aggressive Mode:** Toggle your wolf into aggressive mode to automatically attack nearby hostile monsters.
-- **Over-Limit Evolution:** Tame a wolf when your pack is full? It becomes a Level 0. Inspect its Ranks, remove an old wolf, and feed it its required item to promote it to Level 1!
+- **Wolf Rank System:** Wolves receive random ranks (S to E) for Health, Damage, Speed, and Armor upon taming.
+- **Leveling & Kills:** Wolves gain XP and level up by killing mobs. The plugin also tracks how many mobs each wolf has killed.
+- **Fox Adoption & Support:** Baby foxes can be adopted using Raw Chicken. They provide a Regeneration aura to nearby wolves.
+- **Async Calling:** `/wolfs call` and `/wolfs foxcall` can teleport your pets from other worlds or unloaded chunks without causing server lag.
+- **Aggressive Mode:** Set your wolf to aggressive mode to automatically attack nearby hostile monsters.
+- **PvP Duels:** Challenge other players to a duel! Your pets will fight alongside you, and deaths are cancelled for a safe, competitive experience.
+- **Leaderboards (Scoreboard):** A fully interactive scoreboard showing the Top 3 Wolves in Level, Damage, and Kills on the server.
+- **Friendly Fire Protection:** Configure whether players can accidentally hit their own wolves.
 - **Vanilla Breeding:** Baby wolves born from breeding cannot level up, preserving vanilla balance.
 
 ## Requirements
@@ -21,42 +26,46 @@ For balancing reasons, once a player tames a certain number of wolves (configura
 - Java 25
 
 ## Commands
-- `/wolfs` or `/wolfs ranks [name]` - Shows the RPG ranks, level, and XP of your wolf (also shows the required item for Level 0 wolves).
-- `/wolfs stats [name]` - Shows the raw numerical stats (HP, Damage, etc.).
+- `/wolfs` or `/wolfs stats [name]` - Shows the full stats and ranks of your wolf.
 - `/wolfs list` - Lists all your wolves and the worlds they are currently in.
-- `/wolfs call <name>` - Teleports your wolf to you, even if it's in an unloaded chunk. (Has a cooldown).
-- `/wolfs mode <agg|normal> [name]` - Changes the wolf's combat behavior (Aggressive or Normal).
+- `/wolfs call <name>` - Teleports your wolf to you.
+- `/wolfs mode <agg|normal> [name]` - Changes the wolf's combat behavior (applies to nearby wolves if no name is given).
 - `/wolfs rename <oldName> <newName>` - Renames a wolf.
-- `/wolfs remove [name]` - Safely deletes a wolf (requires `/wolfs confirm`).
+- `/wolfs remove [name]` - Safely deletes a wolf (requires confirmation).
 - `/wolfs confirm` - Confirms the deletion of a wolf.
-- `/wolfs help` - Shows the help menu.
+- `/wolfs scoreboard` - Shows the Top 3 Wolves scoreboard for 15 seconds.
+- `/wolfs duel <player>` - Challenges a player to a pet duel.
+- `/wolfs duel <accept|decline|forfeit>` - Manages your current duel.
+- `/wolfs help [page]` - Shows the help menu (pages 1-3).
+
+### Fox Commands
+- `/wolfs foxlist` - Lists all your adopted foxes.
+- `/wolfs foxcall <name>` - Teleports your fox to you.
+- `/wolfs foxrename <oldName> <newName>` - Renames a fox.
 
 ### Admin Commands
 *(Requires `mywolfs.admin` permission)*
 - `/wolfs admin setlevel <name> <level>` - Sets a wolf's level.
 - `/wolfs admin forcerm <name>` (or `frm`) - Instantly deletes a wolf.
+- `/wolfs admin spawn <wolf|fox>` - Spawns a tamed/configured pet for testing.
 
 ## Permissions
-- `mywolfs.admin` - Allows access to admin commands (setlevel, force remove).
+- `mywolfs.admin` - Allows access to admin commands.
 
 ## Configuration
 The `config.yml` allows you to tweak:
-- `max_wolves`: Max RPG wolves per player.
+- `max_wolves` & `max_foxes`: Max RPG pets per player.
 - `stats`: Stat gains per level.
 - `ranks`: Rank multipliers.
 - `mob_xp`: XP values for each mob.
-- `upgrade_items`: The list of items that can be rolled to promote Level 0 wolves.
-- `settings`: Call cooldown and autosave interval.
+- `upgrade_items`: The list of items for Level 0 wolves.
+- `settings`: Call cooldowns, autosave intervals, and friendly fire options.
 
 ## Roadmap (Planned Features)
-
-Here is what I plan to add to the plugin in the future. (This list is not final and may change).
-
-- [ ] **Regeneration & Death Mechanic:** Wolves will slowly regenerate health out of combat, and dying might have a penalty (or a way to revive them).
-- [ ] **Special Abilities (Perks):** At certain levels, wolves will unlock special powers (e.g., fire resistance, critical strike chance).
-- [ ] **GUI Menu:** Instead of chat commands, players will be able to right-click a wolf with a specific item to open an inventory menu showing all stats.
-- [ ] **Genetics:** Wolves from different biomes might have different ranks, and breeding different wolves can mix good or bad ranks.
-- [ ] **Multi-language Support:** Add a system to easily translate the plugin to other languages.
-- [ ] **Multiplayer Features:** A scoreboard showing off the strongest wolves to the whole server.
+- [ ] **Special Abilities (Perks):** At certain levels, wolves will unlock special powers.
+- [ ] **GUI Menu:** Instead of chat commands, players will be able to right-click a pet to open an inventory menu.
+- [ ] **Genetics:** Breeding different wolves can mix good or bad ranks.
+- [ ] **Multi-language Support:** Add a system to easily translate the plugin.
+- [ ] **Advanced Duel Targeting:** Allow players to use an item to command their wolves to focus a specific target during a duel.
 
 *(If you have a suggestion, feel free to open an issue on GitHub!)*
