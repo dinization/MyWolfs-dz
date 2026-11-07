@@ -112,6 +112,35 @@ messages:
   help_upgrade_info: "<gray>Over-limit wolves (Level 0) need a specific item to be promoted. Use <yellow>/wolfs ranks</yellow> to see what they need! (you still need to remove another wolf to make room for it)"
   help_foxlist: "<yellow>/wolfs foxlist <gray>- Lists all your foxes and their current world."
 
+  # Duel Messages
+  duel_challenge_sent: "<green>You have challenged %target% to a duel!"
+  duel_challenge_received: "<yellow>%challenger% has challenged you to a duel! <green>Type /wolfs duel accept</green> or <red>/wolfs duel decline</red>."
+  duel_challenge_expired: "<red>Your duel challenge to %target% has expired."
+  duel_target_offline: "<red>That player is not online."
+  duel_already_in_duel: "<red>One of the players is already in a duel."
+  duel_self_challenge: "<red>You cannot duel yourself."
+
+  duel_too_close: "<red>You are too close! Move at least %distance% blocks away before accepting."
+
+  duel_started: "<gold><bold>DUEL STARTED!</bold></gold>"
+  duel_countdown: "<yellow>Starting in %time%..."
+  duel_go: "<green><bold>FIGHT!</bold></green>"
+
+  duel_ended_winner: "<gold><bold>DUEL OVER!</bold></gold> <green>%winner% has won the duel!"
+  duel_ended_timeout: "<gold><bold>DUEL OVER!</bold></gold> <yellow>Time limit reached! It's a draw."
+  duel_ended_forfeit: "<gold><bold>DUEL OVER!</bold></gold> <red>%forfeiter% has forfeited the duel. %winner% wins!"
+  duel_ended_disconnect: "<gold><bold>DUEL OVER!</bold></gold> <red>%quitter% disconnected. %winner% wins!"
+
+  duel_teleport_warning: "<yellow>Teleporting back to your original position in 2 seconds..."
+  duel_command_blocked: "<red>You cannot use commands during a duel! Type /wolfs duel forfeit to give up."
+
+  duel_usage_accept: "<red>Usage: /wolfs duel accept"
+  duel_usage_forfeit: "<red>Usage: /wolfs duel forfeit"
+  duel_no_pending: "<red>You have no pending duel challenges."
+
+  duel_wolf_defeated: "<red>%name% was defeated and removed from the duel!"
+  duel_wolf_recovered: "<green>Your wolf has been recovered from a duel state."
+
 # Ranks and their multipliers
 ranks:
   S: 1.5
@@ -207,6 +236,13 @@ settings:
   # Companions Settings:
   max_foxes: 3
   fox_call_cooldown_seconds: 20
+
+  # Duel Settings
+  max_duel_wolves: 3
+  duel_max_duration_minutes: 5
+  duel_challenge_timeout_seconds: 30
+  duel_min_distance_blocks: 50
+  duel_preparation_seconds: 5
 
 # Do not change this manually
 config_version: "1.3.0-alpha"

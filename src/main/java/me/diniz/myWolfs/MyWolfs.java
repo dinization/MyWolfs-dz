@@ -66,6 +66,7 @@ public final class MyWolfs extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new WolfSafetyListener(), this);
         getServer().getPluginManager().registerEvents(new UpgradeListener(), this);
         getServer().getPluginManager().registerEvents(new FoxListener(), this);
+        getServer().getPluginManager().registerEvents(new DuelListener(), this);
 
         // Command Reg
         this.getCommand("wolfs").setExecutor(new WolfsCommand());
