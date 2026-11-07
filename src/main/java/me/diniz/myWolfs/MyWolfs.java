@@ -11,6 +11,7 @@ public final class MyWolfs extends JavaPlugin {
     // Keys
     public static NamespacedKey KEY_LEVEL;
     public static NamespacedKey KEY_XP;
+    public static NamespacedKey KEY_KILLS;
     public static NamespacedKey KEY_RANK_HEALTH;
     public static NamespacedKey KEY_RANK_DAMAGE;
     public static NamespacedKey KEY_RANK_SPEED;
@@ -19,6 +20,9 @@ public final class MyWolfs extends JavaPlugin {
     public static NamespacedKey KEY_WOLF_NAME;
     public static NamespacedKey KEY_IS_BABY;
     public static NamespacedKey KEY_UPGRADE_ITEM;
+    public static NamespacedKey KEY_FOX_OWNER;
+    public static NamespacedKey KEY_FOX_NAME;
+
 
     private static MyWolfs instance;
     private final MiniMessage miniMessage = MiniMessage.miniMessage();
@@ -45,6 +49,7 @@ public final class MyWolfs extends JavaPlugin {
         //endregion
 
         WolfDataManager.setup();
+        FoxDataManager.setup();
 
         // Start the Mode Task (Aggressive Mode check)
         WolfModeManager.startTask(this);
@@ -53,6 +58,7 @@ public final class MyWolfs extends JavaPlugin {
         KEY_WOLF_NAME = new NamespacedKey(this, "wolf_name");
         KEY_LEVEL = new NamespacedKey(this, "wolf_level");
         KEY_XP = new NamespacedKey(this, "wolf_xp");
+        KEY_KILLS = new NamespacedKey(this, "wolf_kills");
         KEY_RANK_HEALTH = new NamespacedKey(this, "rank_health");
         KEY_RANK_DAMAGE = new NamespacedKey(this, "rank_damage");
         KEY_RANK_SPEED = new NamespacedKey(this, "rank_speed");
@@ -60,6 +66,9 @@ public final class MyWolfs extends JavaPlugin {
         KEY_LAST_ATTACKER = new NamespacedKey(this, "last_attacker");
         KEY_IS_BABY = new NamespacedKey(this, "is_baby");
         KEY_UPGRADE_ITEM = new NamespacedKey(this, "upgrade_item");
+        KEY_FOX_OWNER = new NamespacedKey(this, "fox_owner");
+        KEY_FOX_NAME = new NamespacedKey(this, "fox_name");
+
 
         // Listeners Reg
         getServer().getPluginManager().registerEvents(new DomesticationListener(this), this);
@@ -68,6 +77,7 @@ public final class MyWolfs extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new BreedingListener(), this);
         getServer().getPluginManager().registerEvents(new WolfSafetyListener(), this);
         getServer().getPluginManager().registerEvents(new UpgradeListener(), this);
+        getServer().getPluginManager().registerEvents(new FoxListener(), this);
 
         // Command Reg
         this.getCommand("wolfs").setExecutor(new WolfsCommand());
@@ -78,11 +88,19 @@ public final class MyWolfs extends JavaPlugin {
 
         // Run on the main thread to safely read entities,
         // but the actual file saving is handled asynchronously inside the manager.
+        ScoreboardManager.updateCache();
         Bukkit.getScheduler().runTaskTimer(this, () -> {
             WolfDataManager.saveAllWolvesSync();
+            FoxDataManager.saveAllFoxesSync();
+
+            ScoreboardManager.updateCache();
         }, ticks, ticks);
 
         getLogger().info("Autosave scheduled every " + intervalMinutes + " minutes.");
+
+        // Starts companion buffs tasks
+        CompanionBuffManager.startAllTasks(this);
+
         getLogger().info("MyWolfs enabled successfully!");
     }
 
@@ -90,7 +108,8 @@ public final class MyWolfs extends JavaPlugin {
     public void onDisable() {
         // Save all wolves synchronously before the server shuts down
         WolfDataManager.saveAllWolvesOnShutdown();
-
+        FoxDataManager.saveAllFoxesSync();
+        FoxDataManager.saveFile();
         getLogger().info("MyWolfs disabled.");
     }
 

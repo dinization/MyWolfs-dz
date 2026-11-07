@@ -37,6 +37,41 @@ messages:
   wolf_promoted: "<green>Success! Your wolf is now Level 1."
   wolf_promotion_failed_limit: "<red>You must remove another Level 1+ wolf first to make room!"
   wolf_promotion_wrong_item: "<red>This wolf needs a different item to upgrade. Use /wolfs ranks to check."
+  fox_adoption_available: "<gold>A baby fox trusts you! <yellow>Right-click it with Raw Chicken to claim it."
+  fox_claimed: "<green>You have successfully claimed the fox as your companion!"
+  fox_already_claimed: "<red>This fox already belongs to someone else."
+  help_foxcall: "<yellow>/wolfs foxcall <name> <gray>- Teleports your fox to you."
+  fox_call_success: "<green>%name% has been teleported to you!"
+  fox_not_found: "<red>You don't have any fox with that name!"
+  fox_renamed: "<green>Fox renamed to %name%!"
+  fox_name_in_use: "<red>You already have a fox named %name%!"
+  usage_foxrename: "<red>Usage: /wolfs foxrename <oldName> <newName>"
+  usage_foxcall: "<red>Usage: /wolfs foxcall <name>"
+  fox_limit_reached: "<red>You have reached the maximum number of foxes (%max%)!"
+  fox_list_header: "<gold>=== Your Foxes (%count%) ==="
+  fox_list_item: "<yellow>%name% <white>- %world%"
+  fox_list_empty: "<red>You don't have any foxes."
+  loading_fox: "<gray>Loading your fox from the world..."
+  fox_call_cooldown: "<red>You must wait %time% seconds before calling your fox again."
+  mode_aggressive_area: "<green>%count% wolves are now in Aggressive mode!"
+  mode_normal_area: "<green>%count% wolves are now in Normal mode!"
+  scoreboard_shown: "<green>Showing Top Wolves scoreboard for 20 seconds!"
+  scoreboard_hidden: "<red>Scoreboard hidden."
+
+
+
+  # Utilities
+  stats_numeric_header: "<gray>--- Real Attributes ---"
+  stats_numeric_health: "<red>Health: <white>%current% / %max%"
+  stats_numeric_damage: "<dark_red>Damage: <white>%damage%"
+  stats_numeric_speed: "<green>Speed: <white>%speed%"
+  stats_numeric_armor: "<gray>Armor: <white>%armor%"
+  stats_header: "<gold>=== %name% (Lv.%level%) ==="
+  stats_xp: "<yellow>XP: <white>%xp% / %xp_needed%"
+  stats_kills: "<yellow>Kills: <white>%kills%"
+  stats_ranks_line: "<yellow>Ranks: <gray>H:<white>%h% <gray>D:<white>%d% <gray>S:<white>%s% <gray>A:<white>%a%"
+  stats_required_item: "<red>Required to upgrade: <white>%item%"
+
 
   # Usage messages
   usage_call: "<red>Usage: /wolfs call <name>"
@@ -60,13 +95,14 @@ messages:
 
   # Help Menu
   help_header: "<gold>=== MyWolfs Commands ==="
-  help_ranks: "<yellow>/wolfs ranks [name] <gray>- Shows the RPG ranks, level, and XP."
   help_stats: "<yellow>/wolfs stats [name] <gray>- Shows the raw numerical stats."
   help_list: "<yellow>/wolfs list <gray>- Lists all your wolves and their current world."
   help_call: "<yellow>/wolfs call <name> <gray>- Teleports your wolf to you (%cooldown%s cooldown)."
   help_mode: "<yellow>/wolfs mode <agg|normal> [name] <gray>- Changes the wolf's combat behavior."
   help_rename: "<yellow>/wolfs rename <oldName> <newName> <gray>- Renames a wolf."
   help_remove: "<yellow>/wolfs remove [name] <gray>- Safely deletes a wolf (requires confirmation)."
+  help_foxrename: "<yellow>/wolfs foxrename <oldName> <newName> <gray>- Renames a fox."
+  help_scoreboard: "<yellow>/wolfs scoreboard <gray>- Shows the server's best wolves."
 
   help_admin_header: "<red>=== Admin Commands ==="
   help_admin_setlevel: "<red>/wolfs admin setlevel <name> <level> <gray>- Sets a wolf's level."
@@ -74,6 +110,7 @@ messages:
 
   help_footer: "<gray>Tip: If you don't specify a name, the plugin will look at the wolf you are aiming at."
   help_upgrade_info: "<gray>Over-limit wolves (Level 0) need a specific item to be promoted. Use <yellow>/wolfs ranks</yellow> to see what they need! (you still need to remove another wolf to make room for it)"
+  help_foxlist: "<yellow>/wolfs foxlist <gray>- Lists all your foxes and their current world."
 
 # Ranks and their multipliers
 ranks:
@@ -160,8 +197,16 @@ upgrade_items:
 
 # Settings
 settings:
-  call_cooldown_seconds: 30
+  # Utilities:
   autosave_interval_minutes: 5
 
+  # Wolves Settings
+  wolf_friendly_fire: false
+  call_cooldown_seconds: 20
+
+  # Companions Settings:
+  max_foxes: 3
+  fox_call_cooldown_seconds: 20
+
 # Do not change this manually
-config_version: "1.2.0"
+config_version: "1.3.0-alpha"
