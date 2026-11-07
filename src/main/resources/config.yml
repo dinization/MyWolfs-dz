@@ -138,8 +138,8 @@ max_wolves: 3
 # Lv 2: (2^1.5) * 100 = 282
 # Lv 3: (3^1.5) * 100 = 519
 leveling:
-  base_xp_required: 100
-  exponent: 1.25
+  base_xp_required: 50
+  exponent: 1.20
 
 # How much XP each mob gives when killed by the wolf
 mob_xp:

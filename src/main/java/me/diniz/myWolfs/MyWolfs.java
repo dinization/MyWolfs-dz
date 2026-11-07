@@ -31,26 +31,14 @@ public final class MyWolfs extends JavaPlugin {
     public void onEnable() {
         instance = this;
 
-        // Creates config.yml
-        saveDefaultConfig();
-        // Creates wolves.yml
-        saveResource("wolves.yml", false);
+        // Run data migrations.
+        // This handles creating the default config, wolves.yml, and foxes.yml if they are missing,
+        // and also updates them to the new version format if needed.
+        DataMigrationManager.runAllMigrations(this);
 
-        //region MIGRATION LOGIC
-        String currentVersion = getPluginMeta().getVersion();
-        String configVersion = getConfig().getString("config_version", "1.0.0");
-
-        if (!configVersion.equals(currentVersion)) {
-            getLogger().info("Config version mismatch! Updating from " + configVersion + " to " + currentVersion + "...");
-            getConfig().set("config_version", currentVersion);
-            saveConfig();
-        }
-
-        //endregion
-
+        // Setup the data managers (loads files into memory)
         WolfDataManager.setup();
         FoxDataManager.setup();
-
         // Start the Mode Task (Aggressive Mode check)
         WolfModeManager.startTask(this);
 

@@ -46,26 +46,6 @@ public class WolfDataManager {
             }
         }
         config = YamlConfiguration.loadConfiguration(file);
-
-        // --- DATABASE MIGRATION LOGIC ---
-        String currentVersion = MyWolfs.getInstance().getPluginMeta().getVersion();
-        String dbVersion = config.getString("database_version", "1.0.0");
-
-        if (!dbVersion.equals(currentVersion)) {
-            MyWolfs.getInstance().getLogger().info("Database version mismatch! Updating from " + dbVersion + " to " + currentVersion + "...");
-
-            migrateDatabase(dbVersion, currentVersion);
-
-            config.set("database_version", currentVersion);
-            saveFile();
-
-            MyWolfs.getInstance().getLogger().info("Database migration complete!");
-        }
-    }
-
-    private static void migrateDatabase(String oldVersion, String newVersion) {
-        // Future data migrations go here
-        // Example: if (oldVersion.equals("1.2.0")) { ... }
     }
     //endregion
 

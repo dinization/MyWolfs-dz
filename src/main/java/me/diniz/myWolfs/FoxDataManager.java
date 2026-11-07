@@ -23,28 +23,13 @@ public class FoxDataManager {
     public static void setup() {
         file = new File(MyWolfs.getInstance().getDataFolder(), "foxes.yml");
         if (!file.exists()) {
-            MyWolfs.getInstance().saveResource("foxes.yml", false);
+            try {
+                file.createNewFile();
+            } catch (IOException e) {
+                MyWolfs.getInstance().getLogger().severe("Could not create wolves.yml!");
+            }
         }
         config = YamlConfiguration.loadConfiguration(file);
-
-        // --- DATABASE MIGRATION LOGIC ---
-        String currentVersion = MyWolfs.getInstance().getPluginMeta().getVersion();
-        String dbVersion = config.getString("database_version", "1.0.0");
-
-        if (!dbVersion.equals(currentVersion)) {
-            MyWolfs.getInstance().getLogger().info("Fox database version mismatch! Updating from " + dbVersion + " to " + currentVersion + "...");
-
-            migrateDatabase(dbVersion, currentVersion);
-
-            config.set("database_version", currentVersion);
-            saveFile();
-
-            MyWolfs.getInstance().getLogger().info("Fox database migration complete!");
-        }
-    }
-
-    private static void migrateDatabase(String oldVersion, String newVersion) {
-        // Future fox data migrations go here
     }
     //endregion
 
