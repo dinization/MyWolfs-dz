@@ -5,7 +5,9 @@ import org.bukkit.entity.Fox;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Wolf;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityTargetLivingEntityEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
@@ -13,6 +15,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.persistence.PersistentDataType;
 
+import java.util.Set;
 import java.util.UUID;
 
 public class DuelListener implements Listener {
@@ -87,7 +90,6 @@ public class DuelListener implements Listener {
     //region PET DEATH PREVENTION (Wolves & Foxes)
     @EventHandler
     public void onPetDamage(org.bukkit.event.entity.EntityDamageEvent event) {
-        // 1. Check if it's a Wolf
         if (event.getEntity() instanceof Wolf wolf) {
             Player owner = (Player) wolf.getOwner();
             if (owner == null || !DuelManager.isInDuel(owner)) return;
@@ -104,9 +106,7 @@ public class DuelListener implements Listener {
                 event.setCancelled(true);
                 DuelManager.defeatWolf(wolf, session);
             }
-        }
-        // 2. Check if it's a Fox (Support)
-        else if (event.getEntity() instanceof Fox fox) {
+        } else if (event.getEntity() instanceof Fox fox) {
             String ownerUUID = fox.getPersistentDataContainer().get(MyWolfs.KEY_FOX_OWNER, PersistentDataType.STRING);
             if (ownerUUID == null) return;
 
@@ -126,6 +126,36 @@ public class DuelListener implements Listener {
                 DuelManager.defeatSupport(fox, session);
             }
         }
+    }
+    //endregion
+
+    //region ANTI-AGGRO
+    /**
+     * Blocks wolves from re-targeting a duel participant after the duel ends.
+     * Vanilla's HurtByTargetGoal re-applies the last attacker every tick,
+     * which is why setAngry(false) and setTarget(null) alone do not stick.
+     * Cancelling this event stops the assignment before it happens.
+     * The lock is per-wolf and per-player, so normal PvP against other
+     * players is unaffected. Only wolves that actually left a duel are
+     * in the map, and only against the two participants of that duel.
+     */
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onWolfTarget(EntityTargetLivingEntityEvent event) {
+        if (DuelManager.postDuelAggroLock.isEmpty()) return;
+
+        if (!(event.getEntity() instanceof Wolf wolf)) return;
+        if (!(event.getTarget() instanceof Player targetPlayer)) return;
+        if (!(wolf.getOwner() instanceof Player owner)) return;
+
+        if (DuelManager.isInDuel(owner)) return;
+        if (targetPlayer.equals(owner)) return;
+
+        Set<UUID> locked = DuelManager.postDuelAggroLock.get(wolf.getUniqueId());
+        if (locked == null || !locked.contains(targetPlayer.getUniqueId())) return;
+
+        event.setCancelled(true);
+        wolf.setTarget(null);
+        wolf.setAngry(false);
     }
     //endregion
 

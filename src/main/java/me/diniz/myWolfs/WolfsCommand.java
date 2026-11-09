@@ -889,6 +889,7 @@ public class WolfsCommand implements CommandExecutor {
     }
 
     private void performTeleport(Player player, Wolf wolf, String wolfName, long currentTime) {
+
         // SAFETY RESET: Clear duel states (gravity, invisibility, mode)
         // This is crucial if the server crashed or the wolf was left in the sky.
         DuelManager.resetPetState(wolf);

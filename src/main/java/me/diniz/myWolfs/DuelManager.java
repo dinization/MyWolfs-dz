@@ -1,5 +1,6 @@
 package me.diniz.myWolfs;
 
+import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.entity.Fox;
@@ -10,6 +11,9 @@ import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scoreboard.Scoreboard;
+import org.bukkit.scoreboard.Team;
+import net.kyori.adventure.text.format.NamedTextColor;
 
 import java.util.*;
 
@@ -49,12 +53,86 @@ public class DuelManager {
     private static final Map<UUID, DuelSession> playerInDuel = new HashMap<>();
     public static final Set<UUID> frozenPlayers = new HashSet<>();
 
+    /**
+     * Wolf UUID -> set of player UUIDs the wolf must not re-target.
+     * Populated when a duel ends; cleared when the wolf is unloaded,
+     * deleted, or caught by the periodic cleanup task.
+     */
+    public static final Map<UUID, Set<UUID>> postDuelAggroLock = new HashMap<>();
+
     public static boolean isInDuel(Player player) {
         return playerInDuel.containsKey(player.getUniqueId());
     }
 
     public static DuelSession getSession(Player player) {
         return playerInDuel.get(player.getUniqueId());
+    }
+
+    public static void clearAggroLock(UUID wolfUUID) {
+        postDuelAggroLock.remove(wolfUUID);
+    }
+    //endregion
+
+    //region GLOW TEAMS
+    private static final String TEAM_P1 = "duel_glow_p1_";
+    private static final String TEAM_P2 = "duel_glow_p2_";
+
+    /**
+     * Registers two colored teams and assigns every wolf/support to its owner's team.
+     * Players are intentionally NOT added, so only companion entities glow.
+     */
+    private static void createGlowTeams(DuelSession session) {
+        Scoreboard board = Bukkit.getScoreboardManager().getMainScoreboard();
+        String suffix = session.player1.toString().substring(0, 8);
+
+        Team t1 = board.getTeam(TEAM_P1 + suffix);
+        if (t1 != null) t1.unregister();
+        t1 = board.registerNewTeam(TEAM_P1 + suffix);
+        t1.color(NamedTextColor.RED);
+
+        Team t2 = board.getTeam(TEAM_P2 + suffix);
+        if (t2 != null) t2.unregister();
+        t2 = board.registerNewTeam(TEAM_P2 + suffix);
+        t2.color(NamedTextColor.BLUE);
+
+        assignGlow(t1, session.player1Wolves);
+        assignGlow(t1, session.player1Supports);
+        assignGlow(t2, session.player2Wolves);
+        assignGlow(t2, session.player2Supports);
+    }
+
+    private static void assignGlow(Team team, List<UUID> entities) {
+        for (UUID uuid : entities) {
+            if (Bukkit.getEntity(uuid) instanceof LivingEntity living && living.isValid()) {
+                team.addEntry(living.getUniqueId().toString());
+                living.setGlowing(true);
+            }
+        }
+    }
+
+    private static void cleanupGlowTeams(DuelSession session) {
+        Scoreboard board = Bukkit.getScoreboardManager().getMainScoreboard();
+        String suffix = session.player1.toString().substring(0, 8);
+
+        Team t1 = board.getTeam(TEAM_P1 + suffix);
+        if (t1 != null) t1.unregister();
+        Team t2 = board.getTeam(TEAM_P2 + suffix);
+        if (t2 != null) t2.unregister();
+
+        // Clear glow from every entity that may have participated (alive, ghost, or support).
+        Set<UUID> all = new HashSet<>();
+        all.addAll(session.player1Wolves);
+        all.addAll(session.player2Wolves);
+        all.addAll(session.ghostWolves);
+        all.addAll(session.player1Supports);
+        all.addAll(session.player2Supports);
+        all.addAll(session.ghostSupports);
+
+        for (UUID uuid : all) {
+            if (Bukkit.getEntity(uuid) instanceof LivingEntity living) {
+                living.setGlowing(false);
+            }
+        }
     }
     //endregion
 
@@ -81,6 +159,9 @@ public class DuelManager {
 
         selectWolves(p2, maxWolves, session, session.player2Wolves);
         selectSupports(p2, session, session.player2Supports);
+
+        // Color-coded glow so each side can tell whose companions are whose.
+        createGlowTeams(session);
 
         int prepTime = MyWolfs.getInstance().getConfig().getInt("settings.duel_preparation_seconds", 5);
         startCountdown(session, prepTime);
@@ -124,7 +205,6 @@ public class DuelManager {
                     return;
                 }
 
-                // Process Player 1's wolves
                 for (UUID wolfId : session.player1Wolves) {
                     if (session.ghostWolves.contains(wolfId)) continue;
                     Wolf wolf = (Wolf) Bukkit.getEntity(wolfId);
@@ -136,7 +216,6 @@ public class DuelManager {
                     }
                 }
 
-                // Process Player 2's wolves
                 for (UUID wolfId : session.player2Wolves) {
                     if (session.ghostWolves.contains(wolfId)) continue;
                     Wolf wolf = (Wolf) Bukkit.getEntity(wolfId);
@@ -155,14 +234,12 @@ public class DuelManager {
         LivingEntity closest = null;
         double closestDist = Double.MAX_VALUE;
 
-        // Check the enemy player
         double distToPlayer = wolf.getLocation().distanceSquared(enemyPlayer.getLocation());
         if (distToPlayer < closestDist) {
             closestDist = distToPlayer;
             closest = enemyPlayer;
         }
 
-        // Check the enemy player's wolves
         for (Wolf enemyWolf : enemyPlayer.getWorld().getEntitiesByClass(Wolf.class)) {
             if (enemyPlayer.equals(enemyWolf.getOwner())) {
                 double distToWolf = wolf.getLocation().distanceSquared(enemyWolf.getLocation());
@@ -173,7 +250,6 @@ public class DuelManager {
             }
         }
 
-        // Check the enemy player's supports
         for (UUID supportId : enemySupports) {
             org.bukkit.entity.Entity entity = Bukkit.getEntity(supportId);
             if (entity instanceof LivingEntity support && entity.isValid()) {
@@ -209,7 +285,6 @@ public class DuelManager {
         fox.getWorld().spawnParticle(org.bukkit.Particle.EXPLOSION, fox.getLocation(), 10);
         fox.getWorld().spawnParticle(org.bukkit.Particle.HEART, fox.getLocation(), 5);
 
-        // Remove from support lists
         session.player1Supports.remove(fox.getUniqueId());
         session.player2Supports.remove(fox.getUniqueId());
         session.ghostSupports.add(fox.getUniqueId());
@@ -303,16 +378,18 @@ public class DuelManager {
     public static void endDuel(DuelSession session, Player winner, String endReason, String... extraReplacements) {
         if (session == null || !session.isActive) return;
         session.isActive = false;
+
+        // Drop glow immediately so the visual effect stops the moment the duel ends.
+        cleanupGlowTeams(session);
+
         clearWolfTargets(session);
 
         Player p1 = Bukkit.getPlayer(session.player1);
         Player p2 = Bukkit.getPlayer(session.player2);
 
-        // 1. Make everyone invulnerable immediately
         if (p1 != null && p1.isOnline()) p1.setInvulnerable(true);
         if (p2 != null && p2.isOnline()) p2.setInvulnerable(true);
 
-        // 2. Visual Effects
         if (p1 != null && p1.isOnline()) {
             p1.addPotionEffect(new PotionEffect(PotionEffectType.LEVITATION, 100, 0, false, false));
         }
@@ -338,7 +415,6 @@ public class DuelManager {
             }.runTaskTimer(MyWolfs.getInstance(), 0L, 10L);
         }
 
-        // 3. Send end messages
         String loserName = (winner != null && p1 != null && winner.equals(p1)) ? p2.getName() : p1.getName();
 
         if (winner != null && winner.isOnline()) {
@@ -355,7 +431,6 @@ public class DuelManager {
             MyWolfs.getInstance().sendConfigMessage(p2, "duel_teleport_warning");
         }
 
-        // 4. Delay for 4 seconds before teleporting
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -376,7 +451,6 @@ public class DuelManager {
                     p2.setHealth(20.0);
                 }
 
-                // Restore Pets
                 restorePets(session.player1Wolves, session);
                 restorePets(session.player2Wolves, session);
                 restorePets(session.ghostWolves, session);
@@ -393,9 +467,9 @@ public class DuelManager {
                         frozenPlayers.remove(session.player1);
                         frozenPlayers.remove(session.player2);
                     }
-                }.runTaskLater(MyWolfs.getInstance(), 60L); // 3 seconds
+                }.runTaskLater(MyWolfs.getInstance(), 60L);
             }
-        }.runTaskLater(MyWolfs.getInstance(), 80L); // 4 seconds
+        }.runTaskLater(MyWolfs.getInstance(), 80L);
     }
 
     private static void restorePets(List<UUID> petList, DuelSession session) {
@@ -410,8 +484,16 @@ public class DuelManager {
                 }
 
                 if (pet instanceof Wolf wolf && wolf.getOwner() instanceof Player owner && owner.isOnline()) {
+                    // Lock this wolf against both duel participants to prevent vanilla aggro from resurfacing.
+                    Set<UUID> lockedPlayers = new HashSet<>();
+                    lockedPlayers.add(session.player1);
+                    lockedPlayers.add(session.player2);
+                    postDuelAggroLock.put(wolf.getUniqueId(), lockedPlayers);
+
+                    wolf.setAngry(false);
+                    wolf.setTarget(null);
                     wolf.teleport(owner.getLocation());
-                    wolf.setSitting(true);
+                    // Wolves return standing (no setSitting(true)).
                 } else if (pet instanceof Fox fox) {
                     String ownerUUID = fox.getPersistentDataContainer().get(MyWolfs.KEY_FOX_OWNER, PersistentDataType.STRING);
                     if (ownerUUID != null) {
@@ -450,6 +532,22 @@ public class DuelManager {
                 if (pet instanceof Wolf wolf) WolfModeManager.setMode(wolf, WolfModeManager.Mode.NORMAL);
             }
         }
+    }
+    //endregion
+
+    //region AGGRO LOCK CLEANUP
+    /**
+     * Periodic sweep that drops lock entries for wolves whose entity no longer
+     * exists (chunk unloaded, admin removal, death). The listener covers the
+     * chunk-unload path; this task catches the residual cases.
+     */
+    public static void startAggroLockCleanupTask() {
+        Bukkit.getScheduler().runTaskTimer(MyWolfs.getInstance(), () -> {
+            postDuelAggroLock.entrySet().removeIf(entry -> {
+                org.bukkit.entity.Entity entity = Bukkit.getEntity(entry.getKey());
+                return entity == null || !entity.isValid();
+            });
+        }, 1200L, 1200L); // every 60 seconds
     }
     //endregion
 }

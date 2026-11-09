@@ -10,6 +10,9 @@ For balancing reasons, once a player tames a certain number of wolves (configura
 
 Additionally, players can adopt Foxes as "Support Pets". They provide passive buffs (like Regeneration) to your wolves, and they can be brought into battle!
 
+Players can now challenge each other to a duel to fight alongside their pets without risking them,
+the duel ends with no deaths to the player or pets, have fun!
+
 ## Features
 - **Wolf Rank System:** Wolves receive random ranks (S to E) for Health, Damage, Speed, and Armor upon taming.
 - **Leveling & Kills:** Wolves gain XP and level up by killing mobs. The plugin also tracks how many mobs each wolf has killed.

@@ -41,6 +41,8 @@ public final class MyWolfs extends JavaPlugin {
         FoxDataManager.setup();
         // Start the Mode Task (Aggressive Mode check)
         WolfModeManager.startTask(this);
+        // Periodic cleanup of stale post-duel aggro locks
+        DuelManager.startAggroLockCleanupTask();
 
         // Initializes keys
         KEY_WOLF_NAME = new NamespacedKey(this, "wolf_name");

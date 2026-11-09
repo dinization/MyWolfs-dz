@@ -140,6 +140,7 @@ public class WolfDataManager {
 
     //region DELETE WOLVES
     public static void deleteWolf(Wolf wolf) {
+        DuelManager.clearAggroLock(wolf.getUniqueId());
         String uuid = wolf.getUniqueId().toString();
         String path = "wolves." + uuid;
 
@@ -150,6 +151,7 @@ public class WolfDataManager {
     }
 
     public static void deleteWolfById(UUID wolfUUID) {
+        DuelManager.clearAggroLock(wolfUUID);
         String path = "wolves." + wolfUUID.toString();
 
         // Load a FRESH copy of the file directly from disk

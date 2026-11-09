@@ -21,7 +21,10 @@ public class WolfSafetyListener implements Listener {
             if (wolf.getHealth() > 0) {
                 WolfDataManager.updateWolf(wolf);
             }
+            // Chunk is unloading; the wolf's vanilla target state is gone with it.
+            DuelManager.clearAggroLock(wolf.getUniqueId());
         }
+
 
         if (event.getEntity() instanceof Fox fox) {
 
