@@ -41,6 +41,8 @@ public class LevelManager implements Listener {
         if (killerWolf == null) return;
 
         var pdc = killerWolf.getPersistentDataContainer();
+        int currentKills = pdc.getOrDefault(MyWolfs.KEY_KILLS, PersistentDataType.INTEGER, 0);
+        pdc.set(MyWolfs.KEY_KILLS, PersistentDataType.INTEGER, currentKills + 1);
         int currentXp = pdc.getOrDefault(MyWolfs.KEY_XP, PersistentDataType.INTEGER, 0);
         int currentLevel = pdc.getOrDefault(MyWolfs.KEY_LEVEL, PersistentDataType.INTEGER, 1);
         if (currentLevel <= 0) return;
@@ -72,10 +74,11 @@ public class LevelManager implements Listener {
             String rankSpeed = pdc.getOrDefault(MyWolfs.KEY_RANK_SPEED, PersistentDataType.STRING, "?");
             String rankArmor = pdc.getOrDefault(MyWolfs.KEY_RANK_ARMOR, PersistentDataType.STRING, "?");
             String officialName = pdc.getOrDefault(MyWolfs.KEY_WOLF_NAME, PersistentDataType.STRING, "Wolf");
-            killerWolf.setCustomName(officialName + " (Lv." + currentLevel + ")");
+            killerWolf.customName(net.kyori.adventure.text.Component.text((officialName + " (Lv." + currentLevel + ")")));
         }
 
         pdc.set(MyWolfs.KEY_XP, PersistentDataType.INTEGER, newXp);
+        WolfDataManager.updateWolf(killerWolf);
     }
 
     @EventHandler

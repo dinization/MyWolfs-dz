@@ -8,10 +8,13 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Fox;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Wolf;
 import org.bukkit.persistence.PersistentDataType;
 import org.jetbrains.annotations.NotNull;
+import io.papermc.paper.entity.Leashable;
 
 import java.util.HashMap;
 import java.util.List;
@@ -22,6 +25,18 @@ public class WolfsCommand implements CommandExecutor {
 
     private final HashMap<UUID, Long> callCooldowns = new HashMap<>();
     private final HashMap<UUID, WolfDeletionRequest> pendingDeletions = new HashMap<>();
+    private final HashMap<UUID, Long> foxCallCooldowns = new HashMap<>();
+    private final HashMap<UUID, DuelChallenge> pendingDuels = new HashMap<>();
+    //region DUELCHALLENGE
+    private static class DuelChallenge {
+        UUID challenger;
+        long timestamp;
+        public DuelChallenge(UUID challenger, long timestamp) {
+            this.challenger = challenger;
+            this.timestamp = timestamp;
+        }
+    }
+    //endregion
 
     private static class WolfDeletionRequest {
         UUID wolfUUID;
@@ -36,32 +51,75 @@ public class WolfsCommand implements CommandExecutor {
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
         if (!(sender instanceof Player player)) return true;
 
-        String subCommand = args.length > 0 ? args[0].toLowerCase() : "ranks";
+        String subCommand = args.length > 0 ? args[0].toLowerCase() : "stats";
 
         //region HELP COMMAND
         if (subCommand.equals("help")) {
-            MyWolfs.getInstance().sendConfigMessage(player, "help_header");
-            MyWolfs.getInstance().sendConfigMessage(player, "help_ranks");
-            MyWolfs.getInstance().sendConfigMessage(player, "help_stats");
-            MyWolfs.getInstance().sendConfigMessage(player, "help_list");
-
-            int cooldown = MyWolfs.getInstance().getConfig().getInt("settings.call_cooldown_seconds", 30);
-            MyWolfs.getInstance().sendConfigMessage(player, "help_call", "%cooldown%", String.valueOf(cooldown));
-
-
-            MyWolfs.getInstance().sendConfigMessage(player, "help_mode");
-            MyWolfs.getInstance().sendConfigMessage(player, "help_rename");
-            MyWolfs.getInstance().sendConfigMessage(player, "help_remove");
-
-            if (player.hasPermission("mywolfs.admin")) {
-                MyWolfs.getInstance().sendConfigMessage(player, "help_admin_header");
-                MyWolfs.getInstance().sendConfigMessage(player, "help_admin_setlevel");
-                MyWolfs.getInstance().sendConfigMessage(player, "help_admin_forcerm");
+            int page = 1;
+            if (args.length >= 2) {
+                try {
+                    page = Integer.parseInt(args[1]);
+                } catch (NumberFormatException ignored) {}
             }
 
-            // footer tip explaining the upgrade system
-            MyWolfs.getInstance().sendConfigMessage(player, "help_upgrade_info");
+            if (page == 1) {
+                MyWolfs.getInstance().sendConfigMessage(player, "help_header_1");
+                MyWolfs.getInstance().sendConfigMessage(player, "help_guide_1_title");
+                MyWolfs.getInstance().sendConfigMessage(player, "help_guide_1_text");
+                MyWolfs.getInstance().sendConfigMessage(player, "help_guide_1_text2");
+                MyWolfs.getInstance().sendConfigMessage(player, "help_page_next");
+            }
+            else if (page == 2) {
+                MyWolfs.getInstance().sendConfigMessage(player, "help_header_2");
+                MyWolfs.getInstance().sendConfigMessage(player, "help_guide_2_title");
+                MyWolfs.getInstance().sendConfigMessage(player, "help_guide_2_text");
+                MyWolfs.getInstance().sendConfigMessage(player, "help_guide_2_text2");
+                MyWolfs.getInstance().sendConfigMessage(player, "help_guide_2_text3");
+                MyWolfs.getInstance().sendConfigMessage(player, "help_page_next_2");
+            }
+            else if (page == 3) {
+                MyWolfs.getInstance().sendConfigMessage(player, "help_header_3");
+                MyWolfs.getInstance().sendConfigMessage(player, "help_stats");
+                MyWolfs.getInstance().sendConfigMessage(player, "help_list");
+
+                int cooldown = MyWolfs.getInstance().getConfig().getInt("settings.call_cooldown_seconds", 30);
+                MyWolfs.getInstance().sendConfigMessage(player, "help_call", "%cooldown%", String.valueOf(cooldown));
+
+                MyWolfs.getInstance().sendConfigMessage(player, "help_mode");
+                MyWolfs.getInstance().sendConfigMessage(player, "help_remove");
+                MyWolfs.getInstance().sendConfigMessage(player, "help_foxcall");
+                MyWolfs.getInstance().sendConfigMessage(player, "help_foxlist");
+                MyWolfs.getInstance().sendConfigMessage(player, "help_scoreboard");
+                MyWolfs.getInstance().sendConfigMessage(player, "help_page_next_3");
+            }
+            else if (page == 4) {
+                MyWolfs.getInstance().sendConfigMessage(player, "help_header_4");
+                MyWolfs.getInstance().sendConfigMessage(player, "help_duel_title");
+                MyWolfs.getInstance().sendConfigMessage(player, "help_duel_text");
+                MyWolfs.getInstance().sendConfigMessage(player, "help_duel_challenge");
+                MyWolfs.getInstance().sendConfigMessage(player, "help_duel_accept");
+                MyWolfs.getInstance().sendConfigMessage(player, "help_duel_forfeit");
+
+                if (player.hasPermission("mywolfs.admin")) {
+                    MyWolfs.getInstance().sendConfigMessage(player, "help_admin_header");
+                    MyWolfs.getInstance().sendConfigMessage(player, "help_admin_setlevel");
+                    MyWolfs.getInstance().sendConfigMessage(player, "help_admin_forcerm");
+                    MyWolfs.getInstance().sendConfigMessage(player, "help_admin_spawn");
+                }
+            }
+            else {
+                player.sendMessage("§cInvalid page. Available pages: 1, 2, 3, 4.");
+                return true;
+            }
+
             MyWolfs.getInstance().sendConfigMessage(player, "help_footer");
+            return true;
+        }
+        //endregion
+
+        //region SCOREBOARD COMMAND
+        if (subCommand.equals("scoreboard")) {
+            ScoreboardManager.showScoreboard(player);
             return true;
         }
         //endregion
@@ -144,6 +202,198 @@ public class WolfsCommand implements CommandExecutor {
         }
         //endregion
 
+        //region FOXCALL COMMAND
+        if (subCommand.equals("foxcall")) {
+            if (args.length < 2) {
+                MyWolfs.getInstance().sendConfigMessage(player, "usage_foxcall");
+                return true;
+            }
+
+            // Check Fox Cooldown
+            int cooldownSeconds = MyWolfs.getInstance().getConfig().getInt("settings.fox_call_cooldown_seconds", 30);
+            long currentTime = System.currentTimeMillis();
+            long lastUse = foxCallCooldowns.getOrDefault(player.getUniqueId(), 0L);
+            long timePassed = (currentTime - lastUse) / 1000;
+
+            if (timePassed < cooldownSeconds) {
+                long timeLeft = cooldownSeconds - timePassed;
+                MyWolfs.getInstance().sendConfigMessage(player, "fox_call_cooldown", "%time%", String.valueOf(timeLeft));
+                return true;
+            }
+
+            String targetName = args[1];
+            String playerUUID = player.getUniqueId().toString();
+            var db = FoxDataManager.getConfig();
+
+            if (db.getConfigurationSection("foxes") == null) {
+                MyWolfs.getInstance().sendConfigMessage(player, "fox_not_found");
+                return true;
+            }
+
+            String foxPath = null;
+            String foxUUIDStr = null;
+
+            for (String key : db.getConfigurationSection("foxes").getKeys(false)) {
+                String path = "foxes." + key;
+                if (playerUUID.equals(db.getString(path + ".owner")) && targetName.equalsIgnoreCase(db.getString(path + ".name"))) {
+                    foxPath = path;
+                    foxUUIDStr = key;
+                    break;
+                }
+            }
+
+            if (foxPath == null) {
+                MyWolfs.getInstance().sendConfigMessage(player, "fox_not_found");
+                return true;
+            }
+
+            UUID foxUUID = UUID.fromString(foxUUIDStr);
+            Fox fox = (Fox) Bukkit.getEntity(foxUUID);
+
+            if (fox != null && fox.isValid()) {
+                // Fox is loaded
+                DuelManager.resetPetState(fox);
+                fox.teleport(player.getLocation());
+                if (fox instanceof io.papermc.paper.entity.Leashable leashableFox) {
+                    leashableFox.setLeashHolder(player);
+                }
+                MyWolfs.getInstance().sendConfigMessage(player, "fox_call_success", "%name%", targetName);
+                foxCallCooldowns.put(player.getUniqueId(), currentTime);
+            } else {
+                // Fox is unloaded, load chunk asynchronously
+                String worldName = db.getString(foxPath + ".world");
+                int chunkX = db.getInt(foxPath + ".chunk_x");
+                int chunkZ = db.getInt(foxPath + ".chunk_z");
+                World world = Bukkit.getWorld(worldName);
+
+                if (world == null) {
+                    MyWolfs.getInstance().sendConfigMessage(player, "world_not_loaded");
+                    return true;
+                }
+
+                MyWolfs.getInstance().sendConfigMessage(player, "loading_fox");
+
+                final String finalFoxPath = foxPath;
+                CompletableFuture<Chunk> futureChunk = world.getChunkAtAsyncUrgently(chunkX, chunkZ);
+                futureChunk.thenAccept(chunk -> {
+                    Bukkit.getScheduler().runTask(MyWolfs.getInstance(), () -> {
+                        Fox loadedFox = (Fox) Bukkit.getEntity(foxUUID);
+                        chunk.removePluginChunkTicket(MyWolfs.getInstance());
+
+                        if (loadedFox != null) {
+                            DuelManager.resetPetState(fox);
+                            loadedFox.teleport(player.getLocation());
+                            if (fox instanceof io.papermc.paper.entity.Leashable leashableFox) {
+                                leashableFox.setLeashHolder(player);
+                            }
+                            MyWolfs.getInstance().sendConfigMessage(player, "fox_call_success", "%name%", targetName);
+                            foxCallCooldowns.put(player.getUniqueId(), currentTime);
+                        } else {
+                            MyWolfs.getInstance().sendConfigMessage(player, "fox_not_found");
+                            // Clean up DB if the fox is truly gone
+                            db.set(finalFoxPath, null);
+                            FoxDataManager.saveFile();
+                        }
+                    });
+                });
+            }
+            return true;
+        }
+        //endregion
+
+        //region FOXRENAME COMMAND
+        if (subCommand.equals("foxrename")) {
+            if (args.length < 3) {
+                MyWolfs.getInstance().sendConfigMessage(player, "usage_foxrename");
+                return true;
+            }
+
+            String oldName = args[1];
+            String newName = args[2];
+            String playerUUID = player.getUniqueId().toString();
+            var db = FoxDataManager.getConfig();
+
+            if (db.getConfigurationSection("foxes") == null) {
+                MyWolfs.getInstance().sendConfigMessage(player, "fox_not_found");
+                return true;
+            }
+
+            String foxPath = null;
+            String foxUUIDStr = null;
+
+            for (String key : db.getConfigurationSection("foxes").getKeys(false)) {
+                String path = "foxes." + key;
+                if (playerUUID.equals(db.getString(path + ".owner")) && oldName.equalsIgnoreCase(db.getString(path + ".name"))) {
+                    foxPath = path;
+                    foxUUIDStr = key;
+                    break;
+                }
+            }
+
+            if (foxPath == null) {
+                MyWolfs.getInstance().sendConfigMessage(player, "fox_not_found");
+                return true;
+            }
+
+            for (String key : db.getConfigurationSection("foxes").getKeys(false)) {
+                String path = "foxes." + key;
+                if (playerUUID.equals(db.getString(path + ".owner")) && newName.equalsIgnoreCase(db.getString(path + ".name"))) {
+                    MyWolfs.getInstance().sendConfigMessage(player, "fox_name_in_use", "%name%", newName);
+                    return true;
+                }
+            }
+
+            db.set(foxPath + ".name", newName);
+            FoxDataManager.saveFile();
+
+            UUID foxUUID = UUID.fromString(foxUUIDStr);
+            Fox fox = (Fox) Bukkit.getEntity(foxUUID);
+
+            if (fox != null && fox.isValid()) {
+                fox.customName(net.kyori.adventure.text.Component.text(newName));
+            }
+
+            MyWolfs.getInstance().sendConfigMessage(player, "fox_renamed", "%name%", newName);
+            return true;
+        }
+        //endregion
+
+        //region FOXLIST COMMAND
+        if (subCommand.equals("foxlist")) {
+            for (Fox fox : player.getWorld().getEntitiesByClass(Fox.class)) {
+                String ownerUUID = fox.getPersistentDataContainer().get(MyWolfs.KEY_FOX_OWNER, PersistentDataType.STRING);
+                if (player.getUniqueId().toString().equals(ownerUUID)) {
+                    FoxDataManager.updateFox(fox);
+                }
+            }
+
+            List<String> foxPaths = FoxDataManager.getPlayerFoxes(player);
+
+            if (foxPaths.isEmpty()) {
+                MyWolfs.getInstance().sendConfigMessage(player, "fox_list_empty");
+                return true;
+            }
+
+            MyWolfs.getInstance().sendConfigMessage(player, "fox_list_header", "%count%", String.valueOf(foxPaths.size()));
+
+            for (String path : foxPaths) {
+                String name = FoxDataManager.getConfig().getString(path + ".name", "Unknown");
+
+                String worldName = FoxDataManager.getConfig().getString(path + ".world", "world");
+                if (worldName.equals("world")) worldName = "Overworld";
+                else if (worldName.equals("world_nether")) worldName = "Nether";
+                else if (worldName.equals("world_the_end")) worldName = "The End";
+
+                String formattedItem = MyWolfs.getInstance().getConfig().getString("messages.fox_list_item", "<yellow>%name% - %world%");
+                formattedItem = formattedItem.replace("%name%", name)
+                        .replace("%world%", worldName);
+
+                player.sendMessage(MiniMessage.miniMessage().deserialize(formattedItem));
+            }
+            return true;
+        }
+        //endregion
+
         //region ADMIN COMMANDS
         if (subCommand.equals("admin")) {
             if (!player.hasPermission("mywolfs.admin")) {
@@ -184,7 +434,7 @@ public class WolfsCommand implements CommandExecutor {
                 WolfDataManager.updateWolf(wolf);
 
                 String officialName = pdc.getOrDefault(MyWolfs.KEY_WOLF_NAME, PersistentDataType.STRING, "Wolf");
-                wolf.setCustomName(officialName + " (Lv." + newLevel + ")");
+                wolf.customName(net.kyori.adventure.text.Component.text(officialName + " (Lv." + newLevel + ")"));
 
                 MyWolfs.getInstance().sendConfigMessage(player, "level_set", "%name%", officialName, "%level%", String.valueOf(newLevel));
                 return true;
@@ -211,6 +461,36 @@ public class WolfsCommand implements CommandExecutor {
                 wolf.remove();
                 WolfDataManager.deleteWolf(wolf);
                 MyWolfs.getInstance().sendConfigMessage(player, "admin_removed", "%name%", officialName);
+                return true;
+            }
+            if (adminAction.equals("spawn")) {
+                if (args.length < 3) {
+                    MyWolfs.getInstance().sendConfigMessage(player, "admin_spawn_usage");
+                    return true;
+                }
+                String mobType = args[2].toLowerCase();
+
+                if (mobType.equals("wolf")) {
+                    org.bukkit.entity.Wolf newWolf = player.getWorld().spawn(player.getLocation(), org.bukkit.entity.Wolf.class);
+                    newWolf.setTamed(true);
+                    newWolf.setOwner(player);
+
+                    // Call the public setup method we created in DomesticationListener
+                    DomesticationListener.setupTamedWolf(newWolf, player);
+
+                    MyWolfs.getInstance().sendConfigMessage(player, "admin_spawn_wolf_success");
+
+                } else if (mobType.equals("fox")) {
+                    org.bukkit.entity.Fox newFox = player.getWorld().spawn(player.getLocation(), org.bukkit.entity.Fox.class);
+
+                    // Call the public setup method we created in FoxListener
+                    FoxListener.setupAdoptedFox(newFox, player);
+
+                    MyWolfs.getInstance().sendConfigMessage(player, "admin_spawn_fox_success");
+
+                } else {
+                    MyWolfs.getInstance().sendConfigMessage(player, "admin_spawn_invalid_type");
+                }
                 return true;
             }
 
@@ -334,7 +614,7 @@ public class WolfsCommand implements CommandExecutor {
             pdc.set(MyWolfs.KEY_WOLF_NAME, PersistentDataType.STRING, newName);
 
             int level = pdc.getOrDefault(MyWolfs.KEY_LEVEL, PersistentDataType.INTEGER, 1);
-            wolf.setCustomName(newName + " (Lv." + level + ")");
+            wolf.customName(net.kyori.adventure.text.Component.text(newName + " (Lv." + level + ")"));
 
             WolfDataManager.updateWolf(wolf);
             MyWolfs.getInstance().sendConfigMessage(player, "wolf_renamed", "%name%", newName);
@@ -349,80 +629,183 @@ public class WolfsCommand implements CommandExecutor {
                 return true;
             }
 
-            Wolf wolf;
-            if (args.length >= 3) {
-                wolf = findWolfByName(player, args[2]);
-            } else {
-                wolf = getWolfInSight(player);
-            }
+            String modeArg = args[1].toLowerCase();
+            WolfModeManager.Mode targetMode = null;
 
-            if (wolf == null) {
-                MyWolfs.getInstance().sendConfigMessage(player, "wolf_not_found");
+            if (modeArg.equals("agg") || modeArg.equals("aggressive")) {
+                targetMode = WolfModeManager.Mode.AGGRESSIVE;
+            } else if (modeArg.equals("normal")) {
+                targetMode = WolfModeManager.Mode.NORMAL;
+            } else {
+                MyWolfs.getInstance().sendConfigMessage(player, "invalid_mode");
                 return true;
             }
 
-            String modeArg = args[1].toLowerCase();
-
-            if (modeArg.equals("agg") || modeArg.equals("aggressive")) {
-                if (WolfModeManager.getMode(wolf) == WolfModeManager.Mode.AGGRESSIVE) {
-                    MyWolfs.getInstance().sendConfigMessage(player, "already_aggressive");
-                } else {
-                    WolfModeManager.setMode(wolf, WolfModeManager.Mode.AGGRESSIVE);
-                    MyWolfs.getInstance().sendConfigMessage(player, "mode_aggressive");
+            // CHECK: Did the player specify a name?
+            if (args.length >= 3) {
+                // Specific wolf by name
+                Wolf wolf = findWolfByName(player, args[2]);
+                if (wolf == null) {
+                    MyWolfs.getInstance().sendConfigMessage(player, "wolf_not_found");
+                    return true;
                 }
-            } else if (modeArg.equals("normal")) {
-                if (WolfModeManager.getMode(wolf) == WolfModeManager.Mode.NORMAL) {
-                    MyWolfs.getInstance().sendConfigMessage(player, "already_normal");
-                } else {
-                    WolfModeManager.setMode(wolf, WolfModeManager.Mode.NORMAL);
-                    MyWolfs.getInstance().sendConfigMessage(player, "mode_normal");
-                }
+                WolfModeManager.setMode(wolf, targetMode);
+                MyWolfs.getInstance().sendConfigMessage(player, targetMode == WolfModeManager.Mode.AGGRESSIVE ? "mode_aggressive" : "mode_normal");
             } else {
-                MyWolfs.getInstance().sendConfigMessage(player, "invalid_mode");
+                // AREA OF EFFECT: Apply to all nearby owned wolves
+                int count = 0;
+                for (Entity entity : player.getNearbyEntities(20, 20, 20)) {
+                    if (entity instanceof Wolf wolf && player.equals(wolf.getOwner())) {
+                        WolfModeManager.setMode(wolf, targetMode);
+                        count++;
+                    }
+                }
+
+                if (count == 0) {
+                    MyWolfs.getInstance().sendConfigMessage(player, "wolf_not_found");
+                } else {
+                    if (targetMode == WolfModeManager.Mode.AGGRESSIVE) {
+                        MyWolfs.getInstance().sendConfigMessage(player, "mode_aggressive_area", "%count%", String.valueOf(count));
+                    } else {
+                        MyWolfs.getInstance().sendConfigMessage(player, "mode_normal_area", "%count%", String.valueOf(count));
+                    }
+                }
             }
             return true;
         }
         //endregion
 
-        //region RANKS / STATS COMMAND
-        if (!subCommand.equals("ranks") && !subCommand.equals("stats")) {
+        //region DUEL COMMAND
+        if (subCommand.equals("duel")) {
+            if (args.length < 2) {
+                MyWolfs.getInstance().sendConfigMessage(player, "duel_usage");
+                return true;
+            }
+
+            String action = args[1].toLowerCase();
+
+            // --- CHALLENGE ---
+            if (action.equals("challenge") || (!action.equals("accept") && !action.equals("decline") && !action.equals("forfeit"))) {
+                // If they typed /wolfs duel <PlayerName>
+                String targetName = action.equals("challenge") && args.length >= 3 ? args[2] : args[1];
+                Player target = Bukkit.getPlayer(targetName);
+
+                if (target == null || !target.isOnline()) {
+                    MyWolfs.getInstance().sendConfigMessage(player, "duel_target_offline");
+                    return true;
+                }
+                if (target.equals(player)) {
+                    MyWolfs.getInstance().sendConfigMessage(player, "duel_self_challenge");
+                    return true;
+                }
+                if (DuelManager.isInDuel(player) || DuelManager.isInDuel(target)) {
+                    MyWolfs.getInstance().sendConfigMessage(player, "duel_already_in_duel");
+                    return true;
+                }
+
+                // Save the challenge
+                pendingDuels.put(target.getUniqueId(), new DuelChallenge(player.getUniqueId(), System.currentTimeMillis()));
+
+                MyWolfs.getInstance().sendConfigMessage(player, "duel_challenge_sent", "%target%", target.getName());
+                MyWolfs.getInstance().sendConfigMessage(target, "duel_challenge_received", "%challenger%", player.getName());
+                return true;
+            }
+
+            // --- ACCEPT ---
+            if (action.equals("accept")) {
+                DuelChallenge challenge = pendingDuels.get(player.getUniqueId());
+                int timeout = MyWolfs.getInstance().getConfig().getInt("settings.duel_challenge_timeout_seconds", 30);
+
+                if (challenge == null || (System.currentTimeMillis() - challenge.timestamp) > timeout * 1000L) {
+                    pendingDuels.remove(player.getUniqueId());
+                    MyWolfs.getInstance().sendConfigMessage(player, "duel_no_pending");
+                    return true;
+                }
+
+                Player challenger = Bukkit.getPlayer(challenge.challenger);
+                if (challenger == null || !challenger.isOnline()) {
+                    pendingDuels.remove(player.getUniqueId());
+                    MyWolfs.getInstance().sendConfigMessage(player, "duel_target_offline");
+                    return true;
+                }
+
+                // Check distance
+                int minDistance = MyWolfs.getInstance().getConfig().getInt("settings.duel_min_distance_blocks", 50);
+                if (challenger.getLocation().distance(player.getLocation()) < minDistance) {
+                    MyWolfs.getInstance().sendConfigMessage(player, "duel_too_close", "%distance%", String.valueOf(minDistance));
+                    return true;
+                }
+
+                // Start the duel
+                pendingDuels.remove(player.getUniqueId());
+                DuelManager.startDuel(challenger, player);
+                return true;
+            }
+
+            // --- DECLINE ---
+            if (action.equals("decline")) {
+                DuelChallenge challenge = pendingDuels.remove(player.getUniqueId());
+                if (challenge != null) {
+                    Player challenger = Bukkit.getPlayer(challenge.challenger);
+                    if (challenger != null && challenger.isOnline()) {
+                        MyWolfs.getInstance().sendConfigMessage(challenger, "duel_declined", "%target%", player.getName());
+                    }
+                }
+                MyWolfs.getInstance().sendConfigMessage(player, "duel_declined_self");
+                return true;
+            }
+
+            // --- FORFEIT ---
+            if (action.equals("forfeit")) {
+                if (!DuelManager.isInDuel(player)) {
+                    MyWolfs.getInstance().sendConfigMessage(player, "duel_not_in_duel");
+                    return true;
+                }
+                DuelManager.DuelSession session = DuelManager.getSession(player);
+                if (session != null) {
+                    Player opponent = Bukkit.getPlayer(session.player1.equals(player.getUniqueId()) ? session.player2 : session.player1);
+                    DuelManager.endDuel(session, opponent, "duel_ended_forfeit", "%forfeiter%", player.getName());
+                }
+                return true;
+            }
+
+            MyWolfs.getInstance().sendConfigMessage(player, "duel_usage");
+            return true;
+        }
+        //endregion
+
+        //region STATS COMMAND (Replaces old stats/ranks)
+        if (!subCommand.equals("stats")) {
             MyWolfs.getInstance().sendConfigMessage(player, "unknown_subcommand");
             return true;
         }
 
         Wolf wolf = findWolf(player, args);
 
+        // 1. If the wolf is loaded
         if (wolf != null) {
             var pdc = wolf.getPersistentDataContainer();
             int level = pdc.getOrDefault(MyWolfs.KEY_LEVEL, PersistentDataType.INTEGER, 1);
             int xp = pdc.getOrDefault(MyWolfs.KEY_XP, PersistentDataType.INTEGER, 0);
+            int kills = pdc.getOrDefault(MyWolfs.KEY_KILLS, PersistentDataType.INTEGER, 0);
             String name = pdc.getOrDefault(MyWolfs.KEY_WOLF_NAME, PersistentDataType.STRING, "Wolf");
 
-            if (subCommand.equals("stats")) {
-                double currentHp = wolf.getHealth();
-                double maxHp = wolf.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).getValue();
-                double dmg = wolf.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
-                double spd = wolf.getAttribute(org.bukkit.attribute.Attribute.MOVEMENT_SPEED).getValue() * 100;
-                double arm = wolf.getAttribute(org.bukkit.attribute.Attribute.ARMOR).getValue();
+            String h = pdc.getOrDefault(MyWolfs.KEY_RANK_HEALTH, PersistentDataType.STRING, "?");
+            String d = pdc.getOrDefault(MyWolfs.KEY_RANK_DAMAGE, PersistentDataType.STRING, "?");
+            String s = pdc.getOrDefault(MyWolfs.KEY_RANK_SPEED, PersistentDataType.STRING, "?");
+            String a = pdc.getOrDefault(MyWolfs.KEY_RANK_ARMOR, PersistentDataType.STRING, "?");
+            String requiredItem = pdc.getOrDefault(MyWolfs.KEY_UPGRADE_ITEM, PersistentDataType.STRING, "DIAMOND");
+            double maxHp = wolf.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH).getValue();
+            double currentHp = wolf.getHealth();
+            double dmg = wolf.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE).getValue();
+            double spd = wolf.getAttribute(org.bukkit.attribute.Attribute.MOVEMENT_SPEED).getValue() * 100;
+            double arm = wolf.getAttribute(org.bukkit.attribute.Attribute.ARMOR).getValue();
 
-                player.sendMessage("§6=== " + name + " (Live) ===");
-                player.sendMessage(String.format("§cHealth: §f%.2f / %.2f", currentHp, maxHp));
-                player.sendMessage(String.format("§4Damage: §f%.2f", dmg));
-                player.sendMessage(String.format("§aSpeed: §f%.2f", spd));
-                player.sendMessage(String.format("§7Armor: §f%.2f", arm));
-            } else {
-                String h = pdc.getOrDefault(MyWolfs.KEY_RANK_HEALTH, PersistentDataType.STRING, "?");
-                String d = pdc.getOrDefault(MyWolfs.KEY_RANK_DAMAGE, PersistentDataType.STRING, "?");
-                String s = pdc.getOrDefault(MyWolfs.KEY_RANK_SPEED, PersistentDataType.STRING, "?");
-                String a = pdc.getOrDefault(MyWolfs.KEY_RANK_ARMOR, PersistentDataType.STRING, "?");
-                String requiredItem = pdc.getOrDefault(MyWolfs.KEY_UPGRADE_ITEM, PersistentDataType.STRING, "DIAMOND");
-
-                displayRanks(player, name, level, xp, h, d, s, a, requiredItem);
-            }
+            displayStats(player, name, level, xp, h, d, s, a, requiredItem, kills, currentHp, maxHp, dmg, spd, arm);
             return true;
         }
 
-        // WOLF IS NOT LOADED: READ EVERYTHING FROM DB
+        // 2. If the wolf is unloaded (read from DB)
         if (args.length < 2) {
             MyWolfs.getInstance().sendConfigMessage(player, "wolf_not_found");
             return true;
@@ -447,55 +830,70 @@ public class WolfsCommand implements CommandExecutor {
             return true;
         }
 
-        if (subCommand.equals("stats")) {
-            player.sendMessage("§6=== " + targetName + " (From DB) ===");
-            player.sendMessage(String.format("§cHealth: §f%.2f", db.getDouble(wolfPath + ".stats.health", 20.0)));
-            player.sendMessage(String.format("§4Damage: §f%.2f", db.getDouble(wolfPath + ".stats.damage", 4.0)));
-            player.sendMessage(String.format("§aSpeed: §f%.2f", db.getDouble(wolfPath + ".stats.speed", 0.3) * 100));
-            player.sendMessage(String.format("§7Armor: §f%.2f", db.getDouble(wolfPath + ".stats.armor", 0.0)));
-        } else {
-            String requiredItem = db.getString(wolfPath + ".upgrade_item", "DIAMOND");
+        int dbKills = db.getInt(wolfPath + ".kills", 0);
+        String dbRequiredItem = db.getString(wolfPath + ".upgrade_item", "DIAMOND");
+        double dbMaxHp = db.getDouble(wolfPath + ".stats.health", 20.0);
+        double dbDmg = db.getDouble(wolfPath + ".stats.damage", 4.0);
+        double dbSpd = db.getDouble(wolfPath + ".stats.speed", 0.3) * 100;
+        double dbArm = db.getDouble(wolfPath + ".stats.armor", 0.0);
 
-            displayRanks(player,
-                    db.getString(wolfPath + ".name", targetName),
-                    db.getInt(wolfPath + ".level", 1),
-                    db.getInt(wolfPath + ".xp", 0),
-                    db.getString(wolfPath + ".ranks.health", "?"),
-                    db.getString(wolfPath + ".ranks.damage", "?"),
-                    db.getString(wolfPath + ".ranks.speed", "?"),
-                    db.getString(wolfPath + ".ranks.armor", "?"),
-                    requiredItem
-            );
-        }
+        displayStats(player,
+                db.getString(wolfPath + ".name", targetName),
+                db.getInt(wolfPath + ".level", 1),
+                db.getInt(wolfPath + ".xp", 0),
+                db.getString(wolfPath + ".ranks.health", "?"),
+                db.getString(wolfPath + ".ranks.damage", "?"),
+                db.getString(wolfPath + ".ranks.speed", "?"),
+                db.getString(wolfPath + ".ranks.armor", "?"),
+                dbRequiredItem,
+                dbKills,
+                dbMaxHp, dbMaxHp, dbDmg, dbSpd, dbArm
+        );
         return true;
         //endregion
     }
 
     //region HELPER METHODS
-    private void displayRanks(Player player, String name, int level, int xp, String h, String d, String s, String a, String requiredItem) {
+    private void displayStats(Player player, String name, int level, int xp, String h, String d, String s, String a,
+                              String requiredItem, int kills, double currentHp, double maxHp, double dmg, double spd, double arm) {
         double baseXpRequired = MyWolfs.getInstance().getConfig().getDouble("leveling.base_xp_required", 100);
         double exponent = MyWolfs.getInstance().getConfig().getDouble("leveling.exponent", 1.5);
         int xpNeeded = (int) (Math.pow(level, exponent) * baseXpRequired);
 
-        player.sendMessage("§6=== " + name + " ===");
-        player.sendMessage("§eLevel: §f" + level);
+        // Header
+        MyWolfs.getInstance().sendConfigMessage(player, "stats_header", "%name%", name, "%level%", String.valueOf(level));
 
+        // XP and Kills
         if (level > 0) {
-            player.sendMessage("§bXP: §f" + xp + " / " + xpNeeded);
+            MyWolfs.getInstance().sendConfigMessage(player, "stats_xp", "%xp%", String.valueOf(xp), "%xp_needed%", String.valueOf(xpNeeded));
         }
+        MyWolfs.getInstance().sendConfigMessage(player, "stats_kills", "%kills%", String.valueOf(kills));
 
-        player.sendMessage("§cHealth: §fRank " + h);
-        player.sendMessage("§4Damage: §fRank " + d);
-        player.sendMessage("§aSpeed: §fRank " + s);
-        player.sendMessage("§7Armor: §fRank " + a);
+        // Ranks in one line
+        MyWolfs.getInstance().sendConfigMessage(player, "stats_ranks_line",
+                "%h%", h, "%d%", d, "%s%", s, "%a%", a);
 
+        // Numeric Attributes
+        MyWolfs.getInstance().sendConfigMessage(player, "stats_numeric_header");
+        MyWolfs.getInstance().sendConfigMessage(player, "stats_numeric_health",
+                "%current%", String.format("%.2f", currentHp),
+                "%max%", String.format("%.2f", maxHp));
+        MyWolfs.getInstance().sendConfigMessage(player, "stats_numeric_damage", "%damage%", String.format("%.2f", dmg));
+        MyWolfs.getInstance().sendConfigMessage(player, "stats_numeric_speed", "%speed%", String.format("%.2f", spd));
+        MyWolfs.getInstance().sendConfigMessage(player, "stats_numeric_armor", "%armor%", String.format("%.2f", arm));
+
+        // Required item (if Level 0)
         if (level == 0 && requiredItem != null && !requiredItem.isEmpty()) {
-            MyWolfs.getInstance().sendConfigMessage(player, "wolf_overlimit_info", "%item%", requiredItem);
+            MyWolfs.getInstance().sendConfigMessage(player, "stats_required_item", "%item%", requiredItem);
         }
     }
 
     private void performTeleport(Player player, Wolf wolf, String wolfName, long currentTime) {
-        wolf.setSitting(false);
+
+        // SAFETY RESET: Clear duel states (gravity, invisibility, mode)
+        // This is crucial if the server crashed or the wolf was left in the sky.
+        DuelManager.resetPetState(wolf);
+
         wolf.teleport(player.getLocation());
         callCooldowns.put(player.getUniqueId(), currentTime);
 

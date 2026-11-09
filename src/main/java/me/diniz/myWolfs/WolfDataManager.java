@@ -19,6 +19,22 @@ public class WolfDataManager {
     private static File file;
     private static FileConfiguration config;
 
+    public static class TopWolf {
+        public final String name;
+        public final String owner;
+        public final String value;
+
+        public TopWolf(String name, String owner, String value) {
+            this.name = name;
+            this.owner = owner;
+            this.value = value;
+        }
+    }
+
+    public static class TopList {
+        public final List<TopWolf> wolves = new ArrayList<>();
+    }
+
     //region SETUP & MIGRATION
     public static void setup() {
         file = new File(MyWolfs.getInstance().getDataFolder(), "wolves.yml");
@@ -30,26 +46,6 @@ public class WolfDataManager {
             }
         }
         config = YamlConfiguration.loadConfiguration(file);
-
-        // --- DATABASE MIGRATION LOGIC ---
-        String currentVersion = MyWolfs.getInstance().getPluginMeta().getVersion();
-        String dbVersion = config.getString("database_version", "1.0.0");
-
-        if (!dbVersion.equals(currentVersion)) {
-            MyWolfs.getInstance().getLogger().info("Database version mismatch! Updating from " + dbVersion + " to " + currentVersion + "...");
-
-            migrateDatabase(dbVersion, currentVersion);
-
-            config.set("database_version", currentVersion);
-            saveFile();
-
-            MyWolfs.getInstance().getLogger().info("Database migration complete!");
-        }
-    }
-
-    private static void migrateDatabase(String oldVersion, String newVersion) {
-        // Future data migrations go here
-        // Example: if (oldVersion.equals("1.2.0")) { ... }
     }
     //endregion
 
@@ -78,6 +74,7 @@ public class WolfDataManager {
         config.set(path + ".ranks.damage", rankDamage);
         config.set(path + ".ranks.speed", rankSpeed);
         config.set(path + ".ranks.armor", rankArmor);
+        config.set(path + ".kills", pdc.getOrDefault(MyWolfs.KEY_KILLS, PersistentDataType.INTEGER, 0));
         config.set(path + ".upgrade_item", pdc.getOrDefault(MyWolfs.KEY_UPGRADE_ITEM, PersistentDataType.STRING, ""));
 
         // Save calculated stats to DB for quick access
@@ -115,6 +112,7 @@ public class WolfDataManager {
         config.set(path + ".ranks.damage", pdc.getOrDefault(MyWolfs.KEY_RANK_DAMAGE, PersistentDataType.STRING, "C"));
         config.set(path + ".ranks.speed", pdc.getOrDefault(MyWolfs.KEY_RANK_SPEED, PersistentDataType.STRING, "C"));
         config.set(path + ".ranks.armor", pdc.getOrDefault(MyWolfs.KEY_RANK_ARMOR, PersistentDataType.STRING, "C"));
+        config.set(path + ".kills", pdc.getOrDefault(MyWolfs.KEY_KILLS, PersistentDataType.INTEGER, 0));
         config.set(path + ".upgrade_item", pdc.getOrDefault(MyWolfs.KEY_UPGRADE_ITEM, PersistentDataType.STRING, ""));
 
         // Save calculated stats to DB for quick access
@@ -142,6 +140,7 @@ public class WolfDataManager {
 
     //region DELETE WOLVES
     public static void deleteWolf(Wolf wolf) {
+        DuelManager.clearAggroLock(wolf.getUniqueId());
         String uuid = wolf.getUniqueId().toString();
         String path = "wolves." + uuid;
 
@@ -152,6 +151,7 @@ public class WolfDataManager {
     }
 
     public static void deleteWolfById(UUID wolfUUID) {
+        DuelManager.clearAggroLock(wolfUUID);
         String path = "wolves." + wolfUUID.toString();
 
         // Load a FRESH copy of the file directly from disk
@@ -192,8 +192,23 @@ public class WolfDataManager {
         }
 
         var pdc = wolf.getPersistentDataContainer();
+
+        // Save Level, XP, and KILLS
         config.set(path + ".level", pdc.getOrDefault(MyWolfs.KEY_LEVEL, PersistentDataType.INTEGER, 1));
         config.set(path + ".xp", pdc.getOrDefault(MyWolfs.KEY_XP, PersistentDataType.INTEGER, 0));
+        config.set(path + ".kills", pdc.getOrDefault(MyWolfs.KEY_KILLS, PersistentDataType.INTEGER, 0)); // <-- AQUI
+
+        // Save calculated stats for the Scoreboard
+        var attrHealth = wolf.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
+        var attrDamage = wolf.getAttribute(org.bukkit.attribute.Attribute.ATTACK_DAMAGE);
+        var attrSpeed = wolf.getAttribute(org.bukkit.attribute.Attribute.MOVEMENT_SPEED);
+        var attrArmor = wolf.getAttribute(org.bukkit.attribute.Attribute.ARMOR);
+
+        config.set(path + ".stats.health", attrHealth != null ? attrHealth.getValue() : 20.0);
+        config.set(path + ".stats.damage", attrDamage != null ? attrDamage.getValue() : 4.0);
+        config.set(path + ".stats.speed", attrSpeed != null ? attrSpeed.getValue() : 0.3);
+        config.set(path + ".stats.armor", attrArmor != null ? attrArmor.getValue() : 0.0);
+
         updateLocation(wolf, path);
     }
 
@@ -235,6 +250,56 @@ public class WolfDataManager {
     //endregion
 
     //region DATABASE QUERIES
+
+    public static TopList getTopWolves(String category) {
+        TopList topList = new TopList();
+        List<Double> values = new ArrayList<>();
+        List<String> names = new ArrayList<>();
+        List<String> owners = new ArrayList<>();
+
+        if (config.getConfigurationSection("wolves") == null) return topList;
+
+        for (String key : config.getConfigurationSection("wolves").getKeys(false)) {
+            String path = "wolves." + key;
+            String name = config.getString(path + ".name", "Unknown");
+            String ownerUUID = config.getString(path + ".owner", "");
+
+            String ownerName = "Offline";
+            if (ownerUUID != null && !ownerUUID.isEmpty()) {
+                org.bukkit.OfflinePlayer p = Bukkit.getOfflinePlayer(UUID.fromString(ownerUUID));
+                if (p.getName() != null) ownerName = p.getName();
+            }
+
+            double value = 0;
+            if (category.equalsIgnoreCase("level")) value = config.getInt(path + ".level", 1);
+            else if (category.equalsIgnoreCase("kills")) value = config.getInt(path + ".kills", 0);
+            else if (category.equalsIgnoreCase("damage")) value = config.getDouble(path + ".stats.damage", 4.0);
+
+            values.add(value);
+            names.add(name);
+            owners.add(ownerName);
+        }
+
+        // Sort by highest value
+        List<Integer> indices = new ArrayList<>();
+        for (int i = 0; i < values.size(); i++) indices.add(i);
+        indices.sort((a, b) -> Double.compare(values.get(b), values.get(a)));
+
+        // Get top 3
+        for (int i = 0; i < Math.min(3, indices.size()); i++) {
+            int idx = indices.get(i);
+            double val = values.get(idx);
+
+            // Format the value based on category
+            String formattedValue = String.valueOf((int) val);
+            if (category.equalsIgnoreCase("damage")) formattedValue = String.format("%.2f", val);
+
+            topList.wolves.add(new TopWolf(names.get(idx), owners.get(idx), formattedValue));
+        }
+
+        return topList;
+    }
+
     public static FileConfiguration getConfig() {
         return config;
     }
