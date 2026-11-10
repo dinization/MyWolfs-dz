@@ -95,12 +95,14 @@ settings:
   fox_call_cooldown_seconds: 20
 
   # Duel Settings
+  duels_enabled: true  # Set to false to completely disable the duel system on the server.
   max_duel_wolves: 3
   duel_max_duration_minutes: 5
   duel_challenge_timeout_seconds: 45
+  duel_max_distance_blocks: 100
   duel_min_distance_blocks: 30
   duel_preparation_seconds: 5
-  duel_wolf_search_radius: 30
+  duel_wolf_search_radius: 30 # When a duel is about to start, only wolves within this radius are eligible to participate
 
 
 # ==========================================
@@ -196,6 +198,8 @@ messages:
   duel_already_in_duel: "<red>One of the players is already in a duel."
   duel_self_challenge: "<red>You cannot duel yourself."
   duel_too_close: "<red>You are too close! Move at least %distance% blocks away before accepting."
+  duel_disabled: "<red>The duel system is disabled on this server."
+  duel_too_far: "<red>You are too far away from the player. the maximum distance is %distance% blocks."
   duel_started: "<gold><bold>DUEL STARTED!</bold></gold>"
   duel_countdown: "<yellow>Starting in %time%..."
   duel_go: "<green><bold>FIGHT!</bold></green>"

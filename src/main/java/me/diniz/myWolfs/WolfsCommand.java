@@ -677,6 +677,11 @@ public class WolfsCommand implements CommandExecutor {
 
         //region DUEL COMMAND
         if (subCommand.equals("duel")) {
+            // Check if duels are globally enabled
+            if (!MyWolfs.getInstance().getConfig().getBoolean("settings.duels_enabled", true)) {
+                MyWolfs.getInstance().sendConfigMessage(player, "duel_disabled");
+                return true;
+            }
             if (args.length < 2) {
                 MyWolfs.getInstance().sendConfigMessage(player, "duel_usage");
                 return true;
@@ -730,6 +735,14 @@ public class WolfsCommand implements CommandExecutor {
                 }
 
                 // Check distance
+                int maxDistance = MyWolfs.getInstance().getConfig().getInt("settings.duel_max_distance_blocks", 100);
+                if (challenger.getLocation().distance(player.getLocation()) > maxDistance) {
+                    MyWolfs.getInstance().sendConfigMessage(player, "duel_too_far", "%distance%", String.valueOf(maxDistance));
+
+                    // Cancel the pending duel so they have to re-challenge
+                    pendingDuels.remove(player.getUniqueId());
+                    return true;
+                }
                 int minDistance = MyWolfs.getInstance().getConfig().getInt("settings.duel_min_distance_blocks", 50);
                 if (challenger.getLocation().distance(player.getLocation()) < minDistance) {
                     MyWolfs.getInstance().sendConfigMessage(player, "duel_too_close", "%distance%", String.valueOf(minDistance));
