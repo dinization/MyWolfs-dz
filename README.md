@@ -15,6 +15,7 @@ the duel ends with no deaths to the player or pets, have fun!
 
 ## Features
 - **Wolf Rank System:** Wolves receive random ranks (S to E) for Health, Damage, Speed, and Armor upon taming.
+- **Wolf Variants & Genetics:** A wolf's base stats are influenced by its vanilla variant (Pale, Woods, Black, etc.). Upon taming, wolves also roll a unique individual RNG variation, making every companion slightly different.
 - **Leveling & Kills:** Wolves gain XP and level up by killing mobs. The plugin also tracks how many mobs each wolf has killed.
 - **Fox Adoption & Support:** Baby foxes can be adopted using Raw Chicken. They provide a Regeneration aura to nearby wolves.
 - **Async Calling:** `/wolfs call` and `/wolfs foxcall` can teleport your pets from other worlds or unloaded chunks without causing server lag.
@@ -22,7 +23,8 @@ the duel ends with no deaths to the player or pets, have fun!
 - **PvP Duels:** Challenge other players to a duel! Your pets will fight alongside you, and deaths are cancelled for a safe, competitive experience.
 - **Leaderboards (Scoreboard):** A fully interactive scoreboard showing the Top 3 Wolves in Level, Damage, and Kills on the server.
 - **Friendly Fire Protection:** Configure whether players can accidentally hit their own wolves.
-- **Vanilla Breeding:** Baby wolves born from breeding cannot level up, preserving vanilla balance.
+- **Vanilla Breeding:** Baby wolves born from breeding remain 100% vanilla, cannot level up, and cannot be evolved, preserving vanilla balance.
+- **Update Checker:** The plugin automatically checks for new versions upon server startup and notifies administrators.
 
 ## Requirements
 - Paper 26.3 or higher
@@ -48,9 +50,9 @@ the duel ends with no deaths to the player or pets, have fun!
 
 ### Admin Commands
 *(Requires `mywolfs.admin` permission)*
-- `/wolfs admin setlevel <name> <level>` - Sets a wolf's level.
-- `/wolfs admin forcerm <name>` (or `frm`) - Instantly deletes a wolf.
-- `/wolfs admin spawn <wolf|fox>` - Spawns a tamed/configured pet for testing.
+- `/wolfs setlevel <name> <level>` - Sets a wolf's level.
+- `/wolfs forcerm <name>` (or `frm`) - Instantly deletes a wolf.
+- `/wolfs spawn <wolf|fox>` - Spawns a tamed/configured pet for testing.
 
 ## Permissions
 - `mywolfs.admin` - Allows access to admin commands.
@@ -59,10 +61,13 @@ the duel ends with no deaths to the player or pets, have fun!
 The `config.yml` allows you to tweak:
 - `max_wolves` & `max_foxes`: Max RPG pets per player.
 - `stats`: Stat gains per level.
+- `stats_roll`: RNG margins and variant multipliers for base stats.
 - `ranks`: Rank multipliers.
 - `mob_xp`: XP values for each mob.
 - `upgrade_items`: The list of items for Level 0 wolves.
-- `settings`: Call cooldowns, autosave intervals, and friendly fire options.
+- `settings`: Call cooldowns, autosave intervals, friendly fire options, and duel system toggles
+(enable/disable, max distance).
+- `variant multipliers`: The stats multiplier for each wolf variant
 
 ## Roadmap (Planned Features)
 - [ ] **Special Abilities (Perks):** At certain levels, wolves will unlock special powers.
