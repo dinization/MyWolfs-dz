@@ -64,7 +64,10 @@ public class DomesticationListener implements Listener {
             }
             pdc.set(MyWolfs.KEY_UPGRADE_ITEM, PersistentDataType.STRING, requiredItem);
 
-            // 4. Generate the REAL name now that the DB is safe
+            // 4. Roll the individual stats for the Over Limit wolf
+            rollIndividualStats(wolf);
+
+            // 5. Generate the REAL name now that the DB is safe
             String uniqueName = generateUniqueName(owner);
             pdc.set(MyWolfs.KEY_WOLF_NAME, PersistentDataType.STRING, uniqueName);
 
@@ -83,19 +86,17 @@ public class DomesticationListener implements Listener {
         int initialLevel = 1;
         int initialXp = 0;
 
-        String rankHealth = rollRank();
-        String rankDamage = rollRank();
-        String rankSpeed = rollRank();
-        String rankArmor = rollRank();
-
         pdc.set(MyWolfs.KEY_LEVEL, PersistentDataType.INTEGER, initialLevel);
         pdc.set(MyWolfs.KEY_XP, PersistentDataType.INTEGER, initialXp);
-        pdc.set(MyWolfs.KEY_RANK_HEALTH, PersistentDataType.STRING, rankHealth);
-        pdc.set(MyWolfs.KEY_RANK_DAMAGE, PersistentDataType.STRING, rankDamage);
-        pdc.set(MyWolfs.KEY_RANK_SPEED, PersistentDataType.STRING, rankSpeed);
-        pdc.set(MyWolfs.KEY_RANK_ARMOR, PersistentDataType.STRING, rankArmor);
+        pdc.set(MyWolfs.KEY_RANK_HEALTH, PersistentDataType.STRING, rollRank());
+        pdc.set(MyWolfs.KEY_RANK_DAMAGE, PersistentDataType.STRING, rollRank());
+        pdc.set(MyWolfs.KEY_RANK_SPEED, PersistentDataType.STRING, rollRank());
+        pdc.set(MyWolfs.KEY_RANK_ARMOR, PersistentDataType.STRING, rollRank());
 
-        // 4. Generate the REAL name now that the DB is safe
+        // 4. Roll the individual stats for the Normal wolf
+        rollIndividualStats(wolf);
+
+        // 5. Generate the REAL name now that the DB is safe
         String uniqueName = generateUniqueName(owner);
         pdc.set(MyWolfs.KEY_WOLF_NAME, PersistentDataType.STRING, uniqueName);
 
@@ -104,11 +105,57 @@ public class DomesticationListener implements Listener {
 
         WolfStatsManager.applyStats(wolf);
 
-        // 5. Save to database again with the final level 1 data and real name
+        // 6. Save to database again with the final level 1 data and real name
         WolfDataManager.updateWolf(wolf);
     }
 
-    // Helper method to generate a unique name using the database
+    //region STAT ROLL LOGIC
+    /**
+     * Rolls the individual stat multipliers based on the wolf's variant.
+     * Saves the final multipliers directly to the wolf's PDC.
+     */
+    private static void rollIndividualStats(Wolf wolf) {
+        var pdc = wolf.getPersistentDataContainer();
+        var config = MyWolfs.getInstance().getConfig();
+        Random rng = new Random();
+
+        // 1. Get the variant key (e.g., "pale", "woods")
+        String variantKey = wolf.getVariant().getKey().getKey();
+
+        // 2. Read base variant multipliers from config
+        double vHealth = config.getDouble("stats_roll.variants." + variantKey + ".health_mult", 1.0);
+        double vDamage = config.getDouble("stats_roll.variants." + variantKey + ".damage_mult", 1.0);
+        double vSpeed = config.getDouble("stats_roll.variants." + variantKey + ".speed_mult", 1.0);
+        double vArmor = config.getDouble("stats_roll.variants." + variantKey + ".armor_flat", 0.0);
+
+        // 3. Read RNG margins
+        double globalVariance = config.getDouble("stats_roll.global_variance", 0.20);
+        double armorVariance = config.getDouble("stats_roll.armor_variance", 1.0);
+
+        // 4. Calculate RNG variation
+        // Formula: 1.0 + (random between -1.0 and 1.0) * margin
+        double rngHealth = 1.0 + (rng.nextDouble() * 2 - 1) * globalVariance;
+        double rngDamage = 1.0 + (rng.nextDouble() * 2 - 1) * globalVariance;
+        double rngSpeed = 1.0 + (rng.nextDouble() * 2 - 1) * globalVariance;
+
+        // Armor is an absolute value: rolls between 0.0 and armorVariance
+        double rngArmor = rng.nextDouble() * armorVariance;
+
+        // 5. Calculate final multipliers
+        double finalHealthMult = vHealth * rngHealth;
+        double finalDamageMult = vDamage * rngDamage;
+        double finalSpeedMult = vSpeed * rngSpeed;
+        double finalArmor = vArmor + rngArmor;
+
+        // 6. Save to PDC
+        pdc.set(MyWolfs.KEY_STAT_HEALTH_MULT, PersistentDataType.DOUBLE, finalHealthMult);
+        pdc.set(MyWolfs.KEY_STAT_DAMAGE_MULT, PersistentDataType.DOUBLE, finalDamageMult);
+        pdc.set(MyWolfs.KEY_STAT_SPEED_MULT, PersistentDataType.DOUBLE, finalSpeedMult);
+        pdc.set(MyWolfs.KEY_STAT_ARMOR_FLAT, PersistentDataType.DOUBLE, finalArmor);
+    }
+    //endregion
+
+    //region HELPER METHODS
     private static String generateUniqueName(Player owner) {
         if (!WolfDataManager.isNameTakenInDB(owner, "Wolf")) {
             return "Wolf";
@@ -130,4 +177,5 @@ public class DomesticationListener implements Listener {
         if (chance < 90) return "D";
         return "E";
     }
+    //endregion
 }

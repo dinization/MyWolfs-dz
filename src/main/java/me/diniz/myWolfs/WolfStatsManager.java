@@ -27,25 +27,31 @@ public class WolfStatsManager {
         String rankSpeed = pdc.getOrDefault(MyWolfs.KEY_RANK_SPEED, PersistentDataType.STRING, "C");
         String rankArmor = pdc.getOrDefault(MyWolfs.KEY_RANK_ARMOR, PersistentDataType.STRING, "C");
 
+        // Get individual stat multipliers (Fallback to 1.0 if the keys don't exist, e.g., old wolves)
+        double healthMult = pdc.getOrDefault(MyWolfs.KEY_STAT_HEALTH_MULT, PersistentDataType.DOUBLE, 1.0);
+        double damageMult = pdc.getOrDefault(MyWolfs.KEY_STAT_DAMAGE_MULT, PersistentDataType.DOUBLE, 1.0);
+        double speedMult = pdc.getOrDefault(MyWolfs.KEY_STAT_SPEED_MULT, PersistentDataType.DOUBLE, 1.0);
+        double armorFlat = pdc.getOrDefault(MyWolfs.KEY_STAT_ARMOR_FLAT, PersistentDataType.DOUBLE, 0.0);
+
         // Get base gains from config.yml
         double baseHealthGain = plugin.getConfig().getDouble("stats.health_per_level", 0.5);
         double baseDamageGain = plugin.getConfig().getDouble("stats.damage_per_level", 0.1);
         double baseSpeedGain = plugin.getConfig().getDouble("stats.speed_per_level", 0.01);
         double baseArmorGain = plugin.getConfig().getDouble("stats.armor_per_level", 0.4);
 
-        // Calculate extra stats (Defaults to 0)
-        double extraHealth = 0;
-        double extraDamage = 0;
-        double extraSpeed = 0;
-        double extraArmor = 0;
+        // Calculate level bonuses (Defaults to 0)
+        double levelHealthBonus = 0;
+        double levelDamageBonus = 0;
+        double levelSpeedBonus = 0;
+        double levelArmorBonus = 0;
 
         // Only calculate bonuses if the wolf is Level 1 or higher
-        // Level 0 (babies) will have 0 extra stats (vanilla)
+        // Level 0 (babies/over limit) will have 0 extra stats (vanilla)
         if (level > 0) {
-            extraHealth = (level - 1) * (baseHealthGain * getMultiplier(rankHealth));
-            extraDamage = (level - 1) * (baseDamageGain * getMultiplier(rankDamage));
-            extraSpeed = (level - 1) * (baseSpeedGain * getMultiplier(rankSpeed));
-            extraArmor = (level - 1) * (baseArmorGain * getMultiplier(rankArmor));
+            levelHealthBonus = (level - 1) * (baseHealthGain * getMultiplier(rankHealth));
+            levelDamageBonus = (level - 1) * (baseDamageGain * getMultiplier(rankDamage));
+            levelSpeedBonus = (level - 1) * (baseSpeedGain * getMultiplier(rankSpeed));
+            levelArmorBonus = (level - 1) * (baseArmorGain * getMultiplier(rankArmor));
         }
 
         // --- APPLY ATTRIBUTES ---
@@ -58,32 +64,51 @@ public class WolfStatsManager {
                 attrHealth.removeModifier(modifier);
             }
 
-            // 2. Set the base value to 20 (vanilla tamed wolf) + our RPG bonus
-            attrHealth.setBaseValue(20.0 + extraHealth);
+            // 2. Calculate final value: (Base 20 * Mult) + Level Bonus
+            double finalHealth = (20.0 * healthMult) + levelHealthBonus;
 
-            // 3. Heal the wolf to the new max health
+            // 3. Round to 2 decimal places to avoid floating point drift
+            finalHealth = Math.round(finalHealth * 100.0) / 100.0;
+
+            // 4. Set the base value and heal the wolf
+            attrHealth.setBaseValue(finalHealth);
             wolf.setHealth(attrHealth.getValue());
         }
 
         // Damage
         AttributeInstance attrDamage = wolf.getAttribute(Attribute.ATTACK_DAMAGE);
         if (attrDamage != null) {
-            // Set base damage (4) + bonus
-            attrDamage.setBaseValue(4.0 + extraDamage);
+            // Base 4 * Mult + Level Bonus
+            double finalDamage = (4.0 * damageMult) + levelDamageBonus;
+
+            // Round to 2 decimal places
+            finalDamage = Math.round(finalDamage * 100.0) / 100.0;
+
+            attrDamage.setBaseValue(finalDamage);
         }
 
         // Speed
         AttributeInstance attrSpeed = wolf.getAttribute(Attribute.MOVEMENT_SPEED);
         if (attrSpeed != null) {
-            // Set base speed (0.3) + bonus
-            attrSpeed.setBaseValue(0.3 + extraSpeed);
+            // Base 0.3 * Mult + Level Bonus
+            double finalSpeed = (0.3 * speedMult) + levelSpeedBonus;
+
+            // Round to 3 decimal places (speed is more sensitive)
+            finalSpeed = Math.round(finalSpeed * 1000.0) / 1000.0;
+
+            attrSpeed.setBaseValue(finalSpeed);
         }
 
         // Armor
         AttributeInstance attrArmor = wolf.getAttribute(Attribute.ARMOR);
         if (attrArmor != null) {
-            // Wolves have no vanilla armor, so we start from 0
-            attrArmor.setBaseValue(extraArmor);
+            // Base 0 + Flat Armor + Level Bonus
+            double finalArmor = armorFlat + levelArmorBonus;
+
+            // Round to 2 decimal places
+            finalArmor = Math.round(finalArmor * 100.0) / 100.0;
+
+            attrArmor.setBaseValue(finalArmor);
         }
     }
 }

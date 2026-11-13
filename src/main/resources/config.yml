@@ -104,6 +104,63 @@ settings:
   duel_preparation_seconds: 5
   duel_wolf_search_radius: 30 # When a duel is about to start, only wolves within this radius are eligible to participate
 
+# --- STATS ROLL SYSTEM ---
+stats_roll:
+  # Margin of individual variation (RNG) for Health, Damage, and Speed.
+  # 0.20 means the final value can roll between -20% and +20% of the variant multiplier.
+  global_variance: 0.20
+
+  # Absolute variation for Armor (e.g., 1.0 rolls a value between 0.0 and 1.0).
+  armor_variance: 1.0
+
+  # Multipliers per wolf variant.
+  variants:
+    pale:
+      health_mult: 1.00
+      damage_mult: 1.00
+      speed_mult: 1.00
+      armor_flat: 0.0
+    woods:
+      health_mult: 1.15
+      damage_mult: 0.85
+      speed_mult: 0.95
+      armor_flat: 3.0
+    ashen:
+      health_mult: 0.95
+      damage_mult: 1.10
+      speed_mult: 1.10
+      armor_flat: 0.0
+    black:
+      health_mult: 0.90
+      damage_mult: 1.40
+      speed_mult: 1.00
+      armor_flat: 0.0
+    chestnut:
+      health_mult: 1.10
+      damage_mult: 0.90
+      speed_mult: 0.90
+      armor_flat: 2.0
+    rusty:
+      health_mult: 1.00
+      damage_mult: 1.00
+      speed_mult: 1.15
+      armor_flat: 0.0
+    spotted:
+      health_mult: 1.00
+      damage_mult: 1.00
+      speed_mult: 1.05
+      armor_flat: 1.0
+    striped:
+      health_mult: 1.00
+      damage_mult: 1.15
+      speed_mult: 1.00
+      armor_flat: 0.0
+    snowy:
+      health_mult: 1.05
+      damage_mult: 1.15
+      speed_mult: 0.95
+      armor_flat: 2.0
+
 
 # ==========================================
 # MESSAGES

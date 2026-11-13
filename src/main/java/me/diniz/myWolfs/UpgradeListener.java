@@ -29,6 +29,15 @@ public class UpgradeListener implements Listener {
         // If the wolf is NOT level 0, we don't do anything
         if (level > 0) return;
 
+        // --- NEW CHECK ---
+        // If the wolf doesn't have the stat multiplier key, it's a vanilla baby (from Breeding).
+        // Vanilla babies cannot be upgraded.
+        if (!pdc.has(MyWolfs.KEY_STAT_HEALTH_MULT)) {
+            // Optional: Send a message to the player
+            // MyWolfs.getInstance().sendConfigMessage(player, "wolf_is_baby_cannot_upgrade");
+            return;
+        }
+
         // Check if the player is holding the correct item
         ItemStack itemInHand = player.getInventory().getItemInMainHand();
         String requiredItemStr = pdc.getOrDefault(MyWolfs.KEY_UPGRADE_ITEM, PersistentDataType.STRING, "DIAMOND");
@@ -61,15 +70,15 @@ public class UpgradeListener implements Listener {
         // 2. Change the level to 1
         pdc.set(MyWolfs.KEY_LEVEL, PersistentDataType.INTEGER, 1);
 
-        // 3. Remove the "is baby" flag so it can level up normally
+        // 3. Remove the "is baby" flag (Over Limits are no longer considered babies once promoted)
         pdc.set(MyWolfs.KEY_IS_BABY, PersistentDataType.BOOLEAN, false);
 
-        // 4. Apply RPG stats (this will recalculate HP, Damage, etc.)
+        // 4. Apply RPG stats (this will recalculate HP, Damage, etc., using the multipliers already in the PDC)
         WolfStatsManager.applyStats(wolf);
 
         // 5. Update the visual name
         String uniqueName = pdc.getOrDefault(MyWolfs.KEY_WOLF_NAME, PersistentDataType.STRING, "Wolf");
-        wolf.setCustomName(uniqueName + " (Lv.1)");
+        wolf.customName(net.kyori.adventure.text.Component.text(uniqueName + " (Lv.1)"));
 
         // 6. Update the database
         WolfDataManager.updateWolf(wolf);

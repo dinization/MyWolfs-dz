@@ -64,6 +64,10 @@ public final class MyWolfs extends JavaPlugin {
         KEY_UPGRADE_ITEM = new NamespacedKey(this, "upgrade_item");
         KEY_FOX_OWNER = new NamespacedKey(this, "fox_owner");
         KEY_FOX_NAME = new NamespacedKey(this, "fox_name");
+        KEY_STAT_HEALTH_MULT = new NamespacedKey(this, "stat_health_mult");
+        KEY_STAT_DAMAGE_MULT = new NamespacedKey(this, "stat_damage_mult");
+        KEY_STAT_SPEED_MULT = new NamespacedKey(this, "stat_speed_mult");
+        KEY_STAT_ARMOR_FLAT = new NamespacedKey(this, "stat_armor_flat");
 
 
         // Listeners Reg
