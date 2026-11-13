@@ -90,6 +90,7 @@ public class WolfsCommand implements CommandExecutor {
                 MyWolfs.getInstance().sendConfigMessage(player, "help_foxcall");
                 MyWolfs.getInstance().sendConfigMessage(player, "help_foxlist");
                 MyWolfs.getInstance().sendConfigMessage(player, "help_scoreboard");
+                MyWolfs.getInstance().sendConfigMessage(player, "help_footer");
                 MyWolfs.getInstance().sendConfigMessage(player, "help_page_next_3");
             }
             else if (page == 4) {
@@ -112,7 +113,7 @@ public class WolfsCommand implements CommandExecutor {
                 return true;
             }
 
-            MyWolfs.getInstance().sendConfigMessage(player, "help_footer");
+
             return true;
         }
         //endregion
@@ -401,28 +402,24 @@ public class WolfsCommand implements CommandExecutor {
         //endregion
 
         //region ADMIN COMMANDS
-        if (subCommand.equals("admin")) {
+        // Admin commands are now directly accessible (e.g., /wolfs setlevel, /wolfs spawn)
+        if (subCommand.equals("setlevel") || subCommand.equals("forcerm") || subCommand.equals("frm") || subCommand.equals("delete") || subCommand.equals("spawn")) {
+
             if (!player.hasPermission("mywolfs.admin")) {
                 MyWolfs.getInstance().sendConfigMessage(player, "no_permission");
                 return true;
             }
 
-            if (args.length < 2) {
-                MyWolfs.getInstance().sendConfigMessage(player, "usage_admin");
-                return true;
-            }
-
-            String adminAction = args[1].toLowerCase();
-
-            if (adminAction.equals("setlevel")) {
-                if (args.length < 4) {
-                    MyWolfs.getInstance().sendConfigMessage(player, "usage_setlevel");
+            // --- SETLEVEL ---
+            if (subCommand.equals("setlevel")) {
+                if (args.length < 3) {
+                    MyWolfs.getInstance().sendConfigMessage(player, "usage_setlevel"); // Note: You might need to update this message in config.yml
                     return true;
                 }
-                String targetName = args[2];
+                String targetName = args[1];
                 int newLevel;
                 try {
-                    newLevel = Integer.parseInt(args[3]);
+                    newLevel = Integer.parseInt(args[2]);
                 } catch (NumberFormatException e) {
                     MyWolfs.getInstance().sendConfigMessage(player, "level_not_number");
                     return true;
@@ -441,22 +438,22 @@ public class WolfsCommand implements CommandExecutor {
 
                 String officialName = pdc.getOrDefault(MyWolfs.KEY_WOLF_NAME, PersistentDataType.STRING, "Wolf");
                 wolf.customName(net.kyori.adventure.text.Component.text(officialName + " (Lv." + newLevel + ")"));
-
                 MyWolfs.getInstance().sendConfigMessage(player, "level_set", "%name%", officialName, "%level%", String.valueOf(newLevel));
                 return true;
             }
 
-            if (adminAction.equals("forcerm") || adminAction.equals("delete") || adminAction.equals("frm")) {
+            // --- FORCE REMOVE ---
+            if (subCommand.equals("forcerm") || subCommand.equals("frm") || subCommand.equals("delete")) {
                 Wolf wolf;
-                if (args.length >= 3) {
-                    wolf = findWolfByName(player, args[2]);
+                if (args.length >= 2) {
+                    wolf = findWolfByName(player, args[1]);
                 } else {
                     wolf = getWolfInSight(player);
                 }
 
                 if (wolf == null) {
-                    if (args.length >= 3 && WolfDataManager.isNameTakenInDB(player, args[2])) {
-                        MyWolfs.getInstance().sendConfigMessage(player, "wolf_unloaded_remove", "%name%", args[2]);
+                    if (args.length >= 2 && WolfDataManager.isNameTakenInDB(player, args[1])) {
+                        MyWolfs.getInstance().sendConfigMessage(player, "wolf_unloaded_remove", "%name%", args[1]);
                     } else {
                         MyWolfs.getInstance().sendConfigMessage(player, "wolf_not_found");
                     }
@@ -469,29 +466,25 @@ public class WolfsCommand implements CommandExecutor {
                 MyWolfs.getInstance().sendConfigMessage(player, "admin_removed", "%name%", officialName);
                 return true;
             }
-            if (adminAction.equals("spawn")) {
-                if (args.length < 3) {
+
+            // --- SPAWN ---
+            if (subCommand.equals("spawn")) {
+                if (args.length < 2) {
                     MyWolfs.getInstance().sendConfigMessage(player, "admin_spawn_usage");
                     return true;
                 }
-                String mobType = args[2].toLowerCase();
+                String mobType = args[1].toLowerCase();
 
                 if (mobType.equals("wolf")) {
                     org.bukkit.entity.Wolf newWolf = player.getWorld().spawn(player.getLocation(), org.bukkit.entity.Wolf.class);
                     newWolf.setTamed(true);
                     newWolf.setOwner(player);
-
-                    // Call the public setup method we created in DomesticationListener
                     DomesticationListener.setupTamedWolf(newWolf, player);
-
                     MyWolfs.getInstance().sendConfigMessage(player, "admin_spawn_wolf_success");
 
                 } else if (mobType.equals("fox")) {
                     org.bukkit.entity.Fox newFox = player.getWorld().spawn(player.getLocation(), org.bukkit.entity.Fox.class);
-
-                    // Call the public setup method we created in FoxListener
                     FoxListener.setupAdoptedFox(newFox, player);
-
                     MyWolfs.getInstance().sendConfigMessage(player, "admin_spawn_fox_success");
 
                 } else {
@@ -499,9 +492,6 @@ public class WolfsCommand implements CommandExecutor {
                 }
                 return true;
             }
-
-            MyWolfs.getInstance().sendConfigMessage(player, "unknown_admin_action");
-            return true;
         }
         //endregion
 

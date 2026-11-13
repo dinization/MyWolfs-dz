@@ -275,8 +275,8 @@ messages:
 
   # --- Usage Messages ---
   usage_call: "<red>Usage: /wolfs call <name>"
-  usage_admin: "<red>Usage: /wolfs admin <setlevel|forcerm|spawn> [args]"
-  usage_setlevel: "<red>Usage: /wolfs admin setlevel <name> <level>"
+  usage_admin: "<red>Usage: /wolfs <setlevel|forcerm|spawn> [args]"
+  usage_setlevel: "<red>Usage: /wolfs setlevel <name> <level>"
   usage_mode: "<red>Usage: /wolfs mode <agg|normal>"
   usage_rename: "<red>Usage: /wolfs rename <oldName> <newName>"
   usage_foxrename: "<red>Usage: /wolfs foxrename <oldName> <newName>"
@@ -286,7 +286,7 @@ messages:
   unknown_admin_action: "<red>Unknown admin action."
 
   # --- Admin Spawn Messages ---
-  admin_spawn_usage: "<red>Usage: /wolfs admin spawn <wolf|fox>"
+  admin_spawn_usage: "<red>Usage: /wolfs spawn <wolf|fox>"
   admin_spawn_wolf_success: "<green>Successfully spawned a new RPG Wolf!"
   admin_spawn_fox_success: "<green>Successfully spawned a new RPG Fox!"
   admin_spawn_invalid_type: "<red>Invalid type! Use 'wolf' or 'fox'."
@@ -333,9 +333,9 @@ messages:
   help_duel_forfeit: "<yellow>/wolfs duel forfeit <gray>- Gives up the duel."
 
   help_admin_header: "<red>=== Admin Commands ==="
-  help_admin_setlevel: "<red>/wolfs admin setlevel <name> <level>"
-  help_admin_forcerm: "<red>/wolfs admin forcerm <name>"
-  help_admin_spawn: "<red>/wolfs admin spawn <wolf|fox>"
+  help_admin_setlevel: "<red>/wolfs setlevel <name> <level>"
+  help_admin_forcerm: "<red>/wolfs forcerm/frm <name>"
+  help_admin_spawn: "<red>/wolfs spawn <wolf|fox>"
 
   help_footer: "<gray>Tip: If you omit a name, the plugin targets the pet you're aiming at."
 
