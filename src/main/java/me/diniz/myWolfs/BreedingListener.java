@@ -37,7 +37,7 @@ public class BreedingListener implements Listener {
         String uniqueName = generateBabyName(owner);
         pdc.set(MyWolfs.KEY_WOLF_NAME, PersistentDataType.STRING, uniqueName);
 
-        babyWolf.setCustomName(uniqueName + " (Baby)");
+        babyWolf.customName(net.kyori.adventure.text.Component.text(uniqueName + " (Baby)"));
         babyWolf.setCustomNameVisible(true);
 
         // Apply vanilla stats (base 20 HP, no RPG bonus) and fix the modifiers

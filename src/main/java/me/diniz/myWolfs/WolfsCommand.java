@@ -119,6 +119,12 @@ public class WolfsCommand implements CommandExecutor {
 
         //region SCOREBOARD COMMAND
         if (subCommand.equals("scoreboard")) {
+            // Prevent overriding the duel glow scoreboard
+            if (DuelManager.isInDuel(player)) {
+                MyWolfs.getInstance().sendConfigMessage(player, "duel_command_blocked");
+                return true;
+            }
+
             ScoreboardManager.showScoreboard(player);
             return true;
         }

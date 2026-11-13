@@ -50,6 +50,11 @@ public class WolfModeManager {
                         continue;
                     }
 
+                    // Skip if the wolf's owner is currently in a duel
+                    if (wolf.getOwner() instanceof Player owner && DuelManager.isInDuel(owner)) {
+                        continue;
+                    }
+
                     if (getMode(wolf) == Mode.AGGRESSIVE) {
                         // Check for timeout (no targets found for 2 minutes)
                         if (currentTime - lastTargetTime.getOrDefault(uuid, currentTime) > timeoutMillis) {

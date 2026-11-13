@@ -236,6 +236,10 @@ messages:
   admin_removed: "<green>Admin: Successfully removed %name%."
   level_set: "<green>Set %name%'s level to %level%!"
 
+  # --- UpdateCheck Messages ---
+  update_available: "<yellow>[MyWolfs] <white>A new version is available! <green>%new_version% <gray>(You are on %current_version%)"
+  update_download_link: "<click:open_url:'%url%'><blue><u>Click here to download the update</u></blue></click>"
+
   # --- Help Menu (Page 1: The Basics) ---
   help_header_1: "<gold>=== MyWolfs Guide (1/4) ==="
   help_guide_1_title: "<yellow>🐺 The Wolves:"

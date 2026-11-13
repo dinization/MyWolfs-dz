@@ -22,6 +22,10 @@ public final class MyWolfs extends JavaPlugin {
     public static NamespacedKey KEY_UPGRADE_ITEM;
     public static NamespacedKey KEY_FOX_OWNER;
     public static NamespacedKey KEY_FOX_NAME;
+    public static NamespacedKey KEY_STAT_HEALTH_MULT;
+    public static NamespacedKey KEY_STAT_DAMAGE_MULT;
+    public static NamespacedKey KEY_STAT_SPEED_MULT;
+    public static NamespacedKey KEY_STAT_ARMOR_FLAT;
 
 
     private static MyWolfs instance;
@@ -43,6 +47,8 @@ public final class MyWolfs extends JavaPlugin {
         WolfModeManager.startTask(this);
         // Periodic cleanup of stale post-duel aggro locks
         DuelManager.startAggroLockCleanupTask();
+
+        UpdateChecker updateChecker = new UpdateChecker(this, "mywolfs");
 
         // Initializes keys
         KEY_WOLF_NAME = new NamespacedKey(this, "wolf_name");
@@ -69,6 +75,7 @@ public final class MyWolfs extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new UpgradeListener(), this);
         getServer().getPluginManager().registerEvents(new FoxListener(), this);
         getServer().getPluginManager().registerEvents(new DuelListener(), this);
+        getServer().getPluginManager().registerEvents(updateChecker, this);
 
         // Command Reg
         this.getCommand("wolfs").setExecutor(new WolfsCommand());
@@ -91,6 +98,8 @@ public final class MyWolfs extends JavaPlugin {
 
         // Starts companion buffs tasks
         CompanionBuffManager.startAllTasks(this);
+
+        updateChecker.checkForUpdates();
 
         getLogger().info("MyWolfs enabled successfully!");
     }
