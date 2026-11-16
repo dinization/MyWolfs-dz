@@ -350,14 +350,21 @@ public class WolfsCommand implements CommandExecutor {
                 }
             }
 
+            // 1. Update the database
             db.set(foxPath + ".name", newName);
             FoxDataManager.saveFile();
 
+            // 2. Update the PDC and visual name if the fox is loaded
             UUID foxUUID = UUID.fromString(foxUUIDStr);
             Fox fox = (Fox) Bukkit.getEntity(foxUUID);
 
             if (fox != null && fox.isValid()) {
+                // Update PDC
+                fox.getPersistentDataContainer().set(MyWolfs.KEY_FOX_NAME, PersistentDataType.STRING, newName);
+                // Update visual name
                 fox.customName(net.kyori.adventure.text.Component.text(newName));
+                // Sync PDC to database again
+                FoxDataManager.updateFox(fox);
             }
 
             MyWolfs.getInstance().sendConfigMessage(player, "fox_renamed", "%name%", newName);

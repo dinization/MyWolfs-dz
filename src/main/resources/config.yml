@@ -104,63 +104,98 @@ settings:
   duel_preparation_seconds: 5
   duel_wolf_search_radius: 30 # When a duel is about to start, only wolves within this radius are eligible to participate
 
-# --- STATS ROLL SYSTEM ---
-stats_roll:
-  # Margin of individual variation (RNG) for Health, Damage, and Speed.
-  # 0.20 means the final value can roll between -20% and +20% of the variant multiplier.
+# --- RPG STATS SYSTEM ---
+rpg_stats_system:
+  # Margin of individual variation (RNG) for vanilla stats.
+  # 0.20 means the vanilla base can roll between -20% and +20%.
   global_variance: 0.20
 
-  # Absolute variation for Armor (e.g., 1.0 rolls a value between 0.0 and 1.0).
+  # Absolute variation for Armor RNG.
   armor_variance: 1.0
 
-  # Multipliers per wolf variant.
+  # Base fixed values and level growth multipliers per wolf variant.
   variants:
     pale:
-      health_mult: 1.00
-      damage_mult: 1.00
-      speed_mult: 1.00
+      health_flat: 0.0
+      damage_flat: 0.0
+      speed_flat: 0.0
       armor_flat: 0.0
+      health_level_scale: 1.00
+      damage_level_scale: 1.00
+      speed_level_scale: 1.00
+      armor_level_scale: 1.00
     woods:
-      health_mult: 1.15
-      damage_mult: 0.85
-      speed_mult: 0.95
+      health_flat: 3.0
+      damage_flat: -0.6
+      speed_flat: -0.015
       armor_flat: 3.0
+      health_level_scale: 1.10
+      damage_level_scale: 0.85
+      speed_level_scale: 0.95
+      armor_level_scale: 1.10
     ashen:
-      health_mult: 0.95
-      damage_mult: 1.10
-      speed_mult: 1.10
+      health_flat: -1.0
+      damage_flat: 0.4
+      speed_flat: 0.03
       armor_flat: 0.0
+      health_level_scale: 1.00
+      damage_level_scale: 1.00
+      speed_level_scale: 1.15
+      armor_level_scale: 1.00
     black:
-      health_mult: 0.90
-      damage_mult: 1.40
-      speed_mult: 1.00
+      health_flat: -2.0
+      damage_flat: 1.6
+      speed_flat: 0.0
       armor_flat: 0.0
+      health_level_scale: 0.85
+      damage_level_scale: 1.15
+      speed_level_scale: 1.00
+      armor_level_scale: 0.90
     chestnut:
-      health_mult: 1.10
-      damage_mult: 0.90
-      speed_mult: 0.90
+      health_flat: 2.0
+      damage_flat: -0.4
+      speed_flat: -0.03
       armor_flat: 2.0
+      health_level_scale: 1.10
+      damage_level_scale: 0.90
+      speed_level_scale: 0.90
+      armor_level_scale: 1.10
     rusty:
-      health_mult: 1.00
-      damage_mult: 1.00
-      speed_mult: 1.15
+      health_flat: 0.0
+      damage_flat: 0.0
+      speed_flat: 0.045
       armor_flat: 0.0
+      health_level_scale: 0.95
+      damage_level_scale: 1.05
+      speed_level_scale: 1.15
+      armor_level_scale: 1.00
     spotted:
-      health_mult: 1.00
-      damage_mult: 1.00
-      speed_mult: 1.05
+      health_flat: 0.0
+      damage_flat: 0.0
+      speed_flat: 0.015
       armor_flat: 1.0
+      health_level_scale: 1.00
+      damage_level_scale: 1.00
+      speed_level_scale: 1.05
+      armor_level_scale: 1.05
     striped:
-      health_mult: 1.00
-      damage_mult: 1.15
-      speed_mult: 1.00
+      health_flat: 0.0
+      damage_flat: 0.6
+      speed_flat: 0.0
       armor_flat: 0.0
+      health_level_scale: 1.00
+      damage_level_scale: 1.10
+      speed_level_scale: 1.00
+      armor_level_scale: 1.00
     snowy:
-      health_mult: 1.05
-      damage_mult: 1.15
-      speed_mult: 0.95
+      health_flat: 1.0
+      damage_flat: 0.6
+      speed_flat: -0.08
       armor_flat: 2.0
-
+      health_level_scale: 1.05
+      damage_level_scale: 1.05
+      speed_level_scale: 0.5
+      armor_level_scale: 1.05
 
 # ==========================================
 # MESSAGES
@@ -184,6 +219,17 @@ messages:
   wolf_promotion_failed_limit: "<red>You must remove another Level 1+ wolf first to make room!"
   wolf_promotion_wrong_item: "<red>This wolf needs a different item to upgrade."
   baby_born: "<yellow>A baby wolf was born! It will remain vanilla and cannot level up."
+
+  # --- Variant Taming Messages ---
+  variant_pale_tamed: "<white>Pale Wolf:</white> <gray>A perfectly balanced companion. It starts with standard stats and grows them at a standard rate."
+  variant_woods_tamed: "<white>Woods Wolf:</white> <gray>A true fortress. It starts with <green>greatly higher Health and Armor</green> and grows them faster. However, its <red>Damage and Speed start lower</red> and grow slower."
+  variant_ashen_tamed: "<white>Ashen Wolf:</white> <gray>Swift and evasive. It starts with <green>higher Speed and slightly higher Damage</green>, and its Speed grows faster. However, its <red>Health starts lower</red>. Armor is standard."
+  variant_black_tamed: "<white>Black Wolf:</white> <gray>A glass cannon. It starts with <green>higher Damage</green> and grows it faster. However, its <red>Health starts much lower</red>, and its <red>Armor starts lower and grows slower</red>. Speed is standard."
+  variant_chestnut_tamed: "<white>Chestnut Wolf:</white> <gray>A resilient companion. It starts with <green>higher Health and Armor</green> and grows both faster. However, its <red>Damage and Speed start lower</red> and grow slower."
+  variant_rusty_tamed: "<white>Rusty Wolf:</white> <gray>A fast duelist. It starts with <green>higher Speed</green> and grows Speed and Damage faster. However, its <red>Health grows slightly slower</red>. Health, Damage, and Armor start at standard values."
+  variant_spotted_tamed: "<white>Spotted Wolf:</white> <gray>A well-rounded fighter. It starts with <green>slightly higher Speed and Armor</green> and grows both slightly faster. Health and Damage are completely standard."
+  variant_striped_tamed: "<white>Striped Wolf:</white> <gray>A focused hunter. It starts with <green>higher Damage</green> and grows it faster. Health, Speed, and Armor are completely standard."
+  variant_snowy_tamed: "<white>Snowy Wolf:</white> <gray>A versatile tank. It starts with <green>higher Health, Damage, and Armor</green> and grows them faster. However, it is <red>drastically slower than other wolves</red> and its Speed barely grows."
 
   # --- Wolves: Commands ---
   wolf_renamed: "<green>Wolf renamed to %name%!"
